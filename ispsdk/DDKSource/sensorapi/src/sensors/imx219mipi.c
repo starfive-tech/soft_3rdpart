@@ -79,12 +79,9 @@
 // if defined writes all registers at enable time instead of configure
 //#define DO_SETUP_IN_ENABLE
 
-#if defined(V4L2_DRIVER)
 //#define IMX219_I2C_CHN              (0)     // For JH7100 VisionFive
 #define IMX219_I2C_CHN              (6)     // For JH7110
-#else
-#define IMX219_I2C_CHN              (0)
-#endif //#if defined(V4L2_DRIVER)
+
 #define IMX219_I2C_ADDR             (0x10)      // in 7-bits
 #define IMX219_WRITE_ADDR           (0x20 >> 1)
 #define IMX219_READ_ADDR            (0x21 >> 1)
@@ -277,22 +274,14 @@ static const STF_DOUBLE SENOSR_MIN_ANALOG_GAIN = 1.0;
 static const STF_DOUBLE SENOSR_MAX_ANALOG_GAIN = 10.5;
 static const STF_DOUBLE SENOSR_MIN_DIGITAL_GAIN = 1.0;
 #if defined(ENABLE_SENSOR_DIGITAL_GAIN)
-  #if 0
-static const STF_DOUBLE SENOSR_MAX_DIGITAL_GAIN = 15.995;
-  #else
 static const STF_DOUBLE SENOSR_MAX_DIGITAL_GAIN = 2.0;
-  #endif //#if 0
 #else
 static const STF_DOUBLE SENOSR_MAX_DIGITAL_GAIN = 1.0;
 #endif //#if defined(ENABLE_SENSOR_DIGITAL_GAIN)
 static const STF_DOUBLE SENSOR_MIN_GAIN = (SENOSR_MIN_ANALOG_GAIN * SENOSR_MIN_DIGITAL_GAIN);
 static const STF_DOUBLE SENSOR_MAX_GAIN = (SENOSR_MAX_ANALOG_GAIN * SENOSR_MAX_DIGITAL_GAIN);
 static const STF_U32 SENSOR_MIN_EXPOSURE = 1 * 1000;    // 1ms
-#if 0
-static const STF_U32 SENSOR_MAX_EXPOSURE = 200 * 1000;  // 200ms, 5fps.
-#else
 static const STF_U32 SENSOR_MAX_EXPOSURE = 100 * 1000;  // 100ms, 10fps.
-#endif //#if 0
 
 static STF_U32 g_u32VerticalTotal = 1000;
 
@@ -813,40 +802,16 @@ static STF_U8* Sensor_GetRegisters(
     return NULL;
 }
 
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
 static STF_RESULT Sensor_I2cRead(
     STF_INT nI2c,
     STF_U16 u16Reg,
     STF_U8 *pu8Data
     )
 {
-  #if 0
-    STF_INT nRet;
-    STF_U8 u8Buf[2];
-    
-    STF_ASSERT(pu8Data);  // null pointer forbidden
-    
-    /* Set I2C slave address */
-	if (ioctl(nI2c, /*I2C_SLAVE*/I2C_SLAVE_FORCE, IMX219_I2C_ADDR)) {
-        LOG_ERROR("Failed to write I2C read address!\n");
-        return STF_ERROR_BUSY;
-    }
-    
-	u8Buf[0] = (u16Reg >> 8) & 0xFF;
-	u8Buf[1] = u16Reg & 0xFF;
-    
-    nRet = write(nI2c, u8Buf, sizeof(u8Buf));
-    if (sizeof(u8Buf) != nRet) {
-        LOG_WARNING("Wrote %dB instead of %luB before reading\n",
-            nRet, sizeof(u8Buf));
-    }
-    
-    nRet = read(nI2c, pu8Data, 1);
-    if (1 != nRet) {
-        LOG_ERROR("Failed to read I2C at 0x%X\n", u16Reg);
-        return STF_ERROR_FATAL;
-    }
-  #else
+#if defined(ADD_USLEEP_FOR_I2C_READ)
+		  usleep(1);
+#endif //#if defined(ADD_USLEEP_FOR_I2C_READ)
+
     struct i2c_rdwr_ioctl_data stPackets;
     struct i2c_msg stMessages[2];
     STF_U8 u8Addr[2];
@@ -874,80 +839,21 @@ static STF_RESULT Sensor_I2cRead(
         return STF_ERROR_FATAL;
     }
     //printf("read  <-[0x%04X] = 0x%02X\n", u16Reg,  *pu8Data);
-  #endif
 
     return STF_SUCCESS;
 }
-#else
-static STF_RESULT Sensor_I2cRead(
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-    STF_INT nI2c,
-    STF_U16 u16Reg,
-    STF_U8 *pu8Data
-    )
-{
-    ST_CAM_REG stCamReg;
-    STF_RESULT Ret = STF_SUCCESS;
 
-    STF_ASSERT(pCIConnection);  // null pointer forbidden
-    STF_ASSERT(pu8Data);        // null pointer forbidden
 
-    stCamReg.u8Idx = u8IspIdx;
-    stCamReg.u16RegAddr = u16Reg;
-    Ret = STFDRV_CD_SYS_CAM_OBJ_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING)
-        pCIConnection,
-#endif //VIRTUAL_IO_MAPPING
-        &stCamReg
-        );
-    if (Ret) {
-        LOG_ERROR("Unable to read reg 0x%04X.\n", stCamReg.u16RegAddr);
-        return STF_ERROR_FATAL;
-    }
-
-    *pu8Data = (STF_U8)stCamReg.u16RegValue;
-
-    return STF_SUCCESS;
-}
-#endif //USE_LINUX_SYSTEM_STARTAND_I2C
-
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
 static STF_RESULT Sensor_I2cRead16(
     STF_INT nI2c,
     STF_U16 u16Reg,
     STF_U16 *pu16Data
     )
 {
-#if 0
-    STF_INT nRet;
-    STF_U8 u8Buf[2];
-    
-    STF_ASSERT(pu16Data);  // null pointer forbidden
-    
-    /* Set I2C slave address */
-	if (ioctl(nI2c, /*I2C_SLAVE*/I2C_SLAVE_FORCE, IMX219_I2C_ADDR)) {
-        LOG_ERROR("Failed to write I2C read address!\n");
-        return STF_ERROR_BUSY;
-    }
-    
-	u8Buf[0] = (u16Reg >> 8) & 0xFF;
-	u8Buf[1] = u16Reg & 0xFF;
-    
-    nRet = write(nI2c, u8Buf, sizeof(u8Buf));
-    if (sizeof(u8Buf) != nRet) {
-        LOG_WARNING("Wrote %dB instead of %luB before reading\n",
-            nRet, sizeof(u8Buf));
-    }
-    
-    nRet = read(nI2c, u8Buf, sizeof(u8Buf));
-    if (sizeof(u8Buf) != nRet) {
-        LOG_ERROR("Failed to read I2C at 0x%04X\n", u16Reg);
-        return STF_ERROR_FATAL;
-    }
+#if defined(ADD_USLEEP_FOR_I2C_READ)
+	  usleep(1);
+#endif //#if defined(ADD_USLEEP_FOR_I2C_READ)
 
-    *pu16Data = ((STF_U16)u8Buf[0] << 8) | u8Buf[1];
-#else
     struct i2c_rdwr_ioctl_data stPackets;
     struct i2c_msg stMessages[2];
     STF_U8 u8Addr[2];
@@ -977,123 +883,17 @@ static STF_RESULT Sensor_I2cRead16(
     }
     *pu16Data = ((STF_U16)u8Data[0] << 8) | u8Data[1];
     //printf("read  <-[0x%04X] = 0x%04X\n", u16Reg,  *pu16Data);
-#endif
 
     return STF_SUCCESS;
 }
-#else
-static STF_RESULT Sensor_I2cRead16(
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-    STF_INT nI2c,
-    STF_U16 u16Reg,
-    STF_U16 *pu16Data
-    )
-{
-    ST_CAM_REG stCamReg;
-    STF_RESULT Ret = STF_SUCCESS;
 
-    STF_ASSERT(pCIConnection);  // null pointer forbidden
-    STF_ASSERT(pu16Data);       // null pointer forbidden
-
-    stCamReg.u8Idx = u8IspIdx;
-    stCamReg.u16RegAddr = u16Reg;
-    Ret = STFDRV_CD_SYS_CAM_OBJ_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING)
-        pCIConnection,
-#endif //VIRTUAL_IO_MAPPING
-        &stCamReg
-        );
-    if (Ret) {
-        LOG_ERROR("Unable to read reg 0x%04X.\n", stCamReg.u16RegAddr);
-        return STF_ERROR_FATAL;
-    }
-
-    *pu16Data = (stCamReg.u16RegValue << 8);
-
-    stCamReg.u16RegAddr++;
-    Ret = STFDRV_CD_SYS_CAM_OBJ_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING)
-        pCIConnection,
-#endif //VIRTUAL_IO_MAPPING
-        &stCamReg
-        );
-    if (Ret) {
-        LOG_ERROR("Unable to read reg 0x%04X.\n", stCamReg.u16RegAddr);
-        return STF_ERROR_FATAL;
-    }
-
-    *pu16Data |= (STF_U8)stCamReg.u16RegValue;
-
-    return STF_SUCCESS;
-}
-#endif //USE_LINUX_SYSTEM_STARTAND_I2C
-
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
 static STF_RESULT Sensor_I2cWriteRegs(
     STF_INT nI2c,
     const STF_U8 *pu8Data,
     STF_U16 u16Len
     )
 {
-#if 0
-    STF_U16 u16Idx;
-  #ifdef CONFIG_REG_DEBUG
-    FILE *fpLog = NULL;
-    static STF_U16 u16Write = 0;
-  #endif //CONFIG_REG_DEBUG
 
-    STF_ASSERT(pu8Data);        // null pointer forbidden
-
-    /* Every write sequence needs to have 3 elements:
-     * 1) slave address high bits [15:8]
-     * 2) slave address low bits [7:0]
-     * 3) data
-     */
-    if (u16Len % 3) {
-        LOG_ERROR("Wrong len of data array, u16Len = %d", u16Len);
-        return STF_ERROR_INVALID_PARAMETERS;
-    }
-
-    /* Set I2C slave address */
-    if (ioctl(nI2c, /*I2C_SLAVE*/I2C_SLAVE_FORCE, IMX219_I2C_ADDR)) {
-        LOG_ERROR("Failed to write I2C slave address!\n");
-        return STF_ERROR_BUSY;
-    }
-
-  #ifdef CONFIG_REG_DEBUG
-    fpLog = fopen("/tmp/imx219_write.txt", "a");
-    fprintf(fpLog, "write %d\n", u16Write++);
-  #endif //CONFIG_REG_DEBUG
-    for (u16Idx = 0; u16Idx < u16Len; pu8Data += 3, u16Idx += 3) {
-        STF_INT nWriteLen = 0;
-
-        if (DELAY_REG == pu8Data[0]) {
-            usleep((int)pu8Data[1] * 1000);
-  #ifdef CONFIG_REG_DEBUG
-            fprintf(fpLog, "delay %dms\n", pu8Data[1]);
-  #endif //CONFIG_REG_DEBUG
-            continue;
-        }
-
-        nWriteLen = write(nI2c, pu8Data, 3);
-  #ifdef CONFIG_REG_DEBUG
-        fprintf(fpLog, "0x%02X%02X 0x%02X\n", pu8Data[0], pu8Data[1], pu8Data[2]);
-  #endif //CONFIG_REG_DEBUG
-
-        if (3 != nWriteLen) {
-            LOG_ERROR("Failed to write I2C data! write_len = %d, index = %d\n",
-                nWriteLen, u16Idx);
-  #ifdef CONFIG_REG_DEBUG
-            fclose(fpLog);
-  #endif //CONFIG_REG_DEBUG
-            return STF_ERROR_BUSY;
-        }
-    }
-  #ifdef CONFIG_REG_DEBUG
-    fclose(fpLog);
-  #endif //CONFIG_REG_DEBUG
-#else
     STF_U16 u16Idx;
     struct i2c_rdwr_ioctl_data stPackets;
     struct i2c_msg stMessages[1];
@@ -1151,220 +951,16 @@ static STF_RESULT Sensor_I2cWriteRegs(
   #ifdef CONFIG_REG_DEBUG
     fclose(fpLog);
   #endif //CONFIG_REG_DEBUG
-#endif
 
     return STF_SUCCESS;
 }
-#else
-static STF_RESULT Sensor_I2cWriteRegs(
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-    STF_INT nI2c,
-    const STF_U8 *pu8Data,
-    STF_U16 u16Len
-    )
-{
-    ST_CAM_REG stCamReg;
-    STF_U16 u16Idx;
-    STF_RESULT Ret = STF_SUCCESS;
-  #ifdef CONFIG_REG_DEBUG
-    FILE *fpLog = NULL;
-    static STF_U16 u16Write = 0;
-  #endif //CONFIG_REG_DEBUG
 
-    STF_ASSERT(pCIConnection);  // null pointer forbidden
-    STF_ASSERT(pu8Data);        // null pointer forbidden
-
-    /* Every write sequence needs to have 3 elements:
-     * 1) slave address high bits [15:8]
-     * 2) slave address low bits [7:0]
-     * 3) data
-     */
-    if (u16Len % 3) {
-        LOG_ERROR("Wrong len of data array, u16Len = %d", u16Len);
-        return STF_ERROR_INVALID_PARAMETERS;
-    }
-
-  #ifdef CONFIG_REG_DEBUG
-    fpLog = fopen("/tmp/imx219_write.txt", "a");
-    fprintf(fpLog, "write %d\n", u16Write++);
-  #endif //CONFIG_REG_DEBUG
-    for (u16Idx = 0; u16Idx < u16Len; pu8Data += 3, u16Idx += 3) {
-        if (DELAY_REG == pu8Data[0]) {
-            usleep((int)pu8Data[1] * 1000);
-  #ifdef CONFIG_REG_DEBUG
-            fprintf(fpLog, "delay %dms\n", pu8Data[1]);
-  #endif //CONFIG_REG_DEBUG
-            continue;
-        }
-
-        stCamReg.u8Idx = u8IspIdx;
-        stCamReg.u16RegAddr = pu8Data[0];
-        stCamReg.u16RegAddr = (stCamReg.u16RegAddr << 8) | pu8Data[1];
-        stCamReg.u16RegValue = pu8Data[2];
-        Ret = STFDRV_CD_SYS_CAM_OBJ_I2cWrite(
-  #if defined(VIRTUAL_IO_MAPPING)
-            pCIConnection,
-  #endif //VIRTUAL_IO_MAPPING
-            &stCamReg
-            );
-  #ifdef CONFIG_REG_DEBUG
-        fprintf(fpLog, "0x%02X%02X 0x%02X\n", pu8Data[0], pu8Data[1], pu8Data[2]);
-  #endif //CONFIG_REG_DEBUG
-
-        if (Ret) {
-            LOG_ERROR("Unable to write reg 0x%04X with data 0x%02X.\n",
-                stCamReg.u16RegAddr, stCamReg.u16RegValue);
-  #ifdef CONFIG_REG_DEBUG
-            fclose(fpLog);
-  #endif //CONFIG_REG_DEBUG
-            return STF_ERROR_FATAL;
-        }
-        //printf("write ->[0x%02X%02X] = 0x%02X\n", pu8Data[0], pu8Data[1], pu8Data[2]);
-    }
-  #ifdef CONFIG_REG_DEBUG
-    fclose(fpLog);
-  #endif //CONFIG_REG_DEBUG
-
-    return STF_SUCCESS;
-}
-#endif //USE_LINUX_SYSTEM_STARTAND_I2C
-
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-static STF_RESULT Sensor_I2cWriteRegs_2(
-    STF_INT nI2c,
-    STF_U16 u16Addr,
-    STF_U8 *pu8Data,
-    STF_U16 u16Len
-    )
-{
-#if 0
-    STF_INT nRet;
-    STF_U8 u8Buf[MAX_I2C_BUF_SIZE];
-
-    STF_ASSERT(pu8Data);        // null pointer forbidden
-
-    if ((MAX_I2C_BUF_SIZE - 2) < u16Len) {
-        LOG_ERROR("Wrong len of data array, u16Len(%d) > %d\n",
-            u16Len, (MAX_I2C_BUF_SIZE - 2));
-        return STF_ERROR_INVALID_PARAMETERS;
-    }
-
-    /* Set I2C slave address */
-    if (ioctl(nI2c, /*I2C_SLAVE*/I2C_SLAVE_FORCE, IMX219_I2C_ADDR)) {
-        LOG_ERROR("Failed to write I2C slave address!\n");
-        return STF_ERROR_BUSY;
-    }
-
-    u8Buf[0] = (u16Addr >> 8) & 0xFF;
-    u8Buf[1] = u16Addr & 0xFF;
-    STF_MEMCPY(&u8Buf[2], pu8Data, u16Len);
-
-    nRet = write(nI2c, u8Buf, (u16Len + 2));
-    if ((u16Len + 2) != nRet) {
-        LOG_ERROR("Unable to write reg 0x%04X with data length %d.\n",
-            u16Addr, u16Len);
-        return STF_ERROR_FATAL;
-    }
-#else
-    STF_U16 u16Idx;
-    struct i2c_rdwr_ioctl_data stPackets;
-    struct i2c_msg stMessages[1];
-    STF_U8 u8Buf[MAX_I2C_BUF_SIZE];
-
-    STF_ASSERT(pu8Data);        // null pointer forbidden
-
-    if ((MAX_I2C_BUF_SIZE - 2) < u16Len) {
-        LOG_ERROR("Wrong len of data array, u16Len(%d) > %d\n",
-            u16Len, (MAX_I2C_BUF_SIZE - 2));
-        return STF_ERROR_INVALID_PARAMETERS;
-    }
-
-    u8Buf[0] = (u16Addr >> 8) & 0xFF;
-    u8Buf[1] = u16Addr & 0xFF;
-    STF_MEMCPY(&u8Buf[2], pu8Data, u16Len);
-
-    stMessages[0].addr  = IMX219_I2C_ADDR;
-    stMessages[0].flags = 0;
-    stMessages[0].len   = (u16Len + 2);
-    stMessages[0].buf   = u8Buf;
-
-    stPackets.msgs = stMessages;
-    stPackets.nmsgs = 1;
-
-    if (0 > ioctl(nI2c, I2C_RDWR, &stPackets)) {
-        LOG_ERROR("Unable to write reg 0x%04X with data length %d.\n",
-            u16Addr, u16Len);
-        return STF_ERROR_FATAL;
-    }
-#endif
-
-    return STF_SUCCESS;
-}
-#else
-static STF_RESULT Sensor_I2cWriteRegs_2(
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-    STF_INT nI2c,
-    STF_U16 u16Addr,
-    STF_U8 *pu8Data,
-    STF_U16 u16Len
-    )
-{
-    ST_CAM_REG stCamReg;
-    STF_U16 u16RegAddr;
-    STF_U16 u16Idx;
-    STF_RESULT Ret = STF_SUCCESS;
-
-    STF_ASSERT(pCIConnection);  // null pointer forbidden
-    STF_ASSERT(pu8Data);        // null pointer forbidden
-
-    u16RegAddr = u16Addr;
-    for (u16Idx = 0; u16Idx < u16Len; u16RegAddr++, pu8Data++, u16Idx++) {
-        stCamReg.u8Idx = u8IspIdx;
-        stCamReg.u16RegAddr = u16RegAddr;
-        stCamReg.u16RegValue = *pu8Data;
-        Ret = STFDRV_CD_SYS_CAM_OBJ_I2cWrite(
-            &stCamReg
-            );
-
-        if (Ret) {
-            LOG_ERROR("Unable to write reg 0x%04X with data 0x%02X.\n",
-                stCamReg.u16RegAddr, stCamReg.u16RegValue);
-            return STF_ERROR_FATAL;
-        }
-        //printf("write ->[0x%02X%02X] = 0x%02X\n", pu8Data[0], pu8Data[1], pu8Data[2]);
-    }
-
-    return STF_SUCCESS;
-}
-#endif //USE_LINUX_SYSTEM_STARTAND_I2C
-
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-static STF_RESULT Sensor_I2cWriteRegs_3(
+static STF_RESULT Sensor_I2cWriteReg(
     STF_INT nI2c,
     STF_U8 *pu8Data,
     STF_U16 u16Len
     )
 {
-#if 0
-    STF_INT nRet;
-
-    STF_ASSERT(pu8Data);        // null pointer forbidden
-
-    /* Set I2C slave address */
-    if (ioctl(nI2c, /*I2C_SLAVE*/I2C_SLAVE_FORCE, IMX219_I2C_ADDR)) {
-        LOG_ERROR("Failed to write I2C slave address!\n");
-        return STF_ERROR_BUSY;
-    }
-
-    nRet = write(nI2c, pu8Data, u16Len);
-    if (u16Len != nRet) {
-        LOG_ERROR("Unable to write reg 0x%02X%02X with data length %d.\n",
-            pu8Data[0], pu8Data[1], (u16Len - 2));
-        return STF_ERROR_FATAL;
-    }
-#else
     STF_U16 u16Idx;
     struct i2c_rdwr_ioctl_data stPackets;
     struct i2c_msg stMessages[1];
@@ -1384,78 +980,16 @@ static STF_RESULT Sensor_I2cWriteRegs_3(
             pu8Data[0], pu8Data[1], (u16Len - 2));
         return STF_ERROR_FATAL;
     }
-#endif
 
     return STF_SUCCESS;
 }
-#else
-static STF_RESULT Sensor_I2cWriteRegs_3(
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-    STF_INT nI2c,
-    STF_U8 *pu8Data,
-    STF_U16 u16Len
-    )
-{
-    ST_CAM_REG stCamReg;
-    STF_U16 u16RegAddr;
-    STF_U16 u16Idx;
-    STF_RESULT Ret = STF_SUCCESS;
 
-    STF_ASSERT(pCIConnection);  // null pointer forbidden
-    STF_ASSERT(pu8Data);        // null pointer forbidden
-
-    u16RegAddr = pu8Data[0];
-    u16RegAddr = (u16RegAddr << 8) | pu8Data[1];
-    pu8Data += 2;
-    for (u16Idx = 0; u16Idx < (u16Len - 2); u16RegAddr++, pu8Data++, u16Idx++) {
-        stCamReg.u8Idx = u8IspIdx;
-        stCamReg.u16RegAddr = u16RegAddr;
-        stCamReg.u16RegValue = *pu8Data;
-        Ret = STFDRV_CD_SYS_CAM_OBJ_I2cWrite(
-            &stCamReg
-            );
-
-        if (Ret) {
-            LOG_ERROR("Unable to write reg 0x%04X with data 0x%02X.\n",
-                stCamReg.u16RegAddr, stCamReg.u16RegValue);
-            return STF_ERROR_FATAL;
-        }
-        //printf("write ->[0x%02X%02X] = 0x%02X\n", pu8Data[0], pu8Data[1], pu8Data[2]);
-    }
-
-    return STF_SUCCESS;
-}
-#endif //USE_LINUX_SYSTEM_STARTAND_I2C
-
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
 static STF_RESULT Sensor_I2cWrite(
     STF_INT nI2c,
     STF_U16 u16Reg,
     STF_U8 u8Data
     )
 {
-#if 0
-    STF_INT nRet;
-    STF_U8 u8Buf[3];
-
-    /* Set I2C slave address */
-    if (ioctl(nI2c, /*I2C_SLAVE*/I2C_SLAVE_FORCE, IMX219_I2C_ADDR)) {
-        LOG_ERROR("Failed to write I2C slave address!\n");
-        return STF_ERROR_BUSY;
-    }
-
-    u8Buf[0] = (u16Reg >> 8) & 0xFF;
-    u8Buf[1] = u16Reg & 0xFF;
-    u8Buf[2] = u8Data;
-
-    nRet = write(nI2c, u8Buf, sizeof(u8Buf));
-    if (sizeof(u8Buf) != nRet) {
-        LOG_ERROR("Unable to write reg 0x%04X with data 0x%02X.\n",
-            u16Reg, u8Data);
-        return STF_ERROR_FATAL;
-    }
-#else
     struct i2c_rdwr_ioctl_data stPackets;
     struct i2c_msg stMessages[1];
     STF_U8 u8Buf[3];
@@ -1477,77 +1011,16 @@ static STF_RESULT Sensor_I2cWrite(
             u16Reg, u8Data);
         return STF_ERROR_FATAL;
     }
-#endif
-    //printf("write ->[0x%04X] = 0x%02X\n", u16Reg, u8Data);
 
     return STF_SUCCESS;
 }
-#else
-static STF_RESULT Sensor_I2cWrite(
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-    STF_INT nI2c,
-    STF_U16 u16Reg,
-    STF_U8 u8Data
-    )
-{
-    ST_CAM_REG stCamReg;
-    STF_U16 u16Idx;
-    STF_RESULT Ret = STF_SUCCESS;
 
-    STF_ASSERT(pCIConnection);  // null pointer forbidden
-
-    stCamReg.u8Idx = u8IspIdx;
-    stCamReg.u16RegAddr = u16Reg;
-    stCamReg.u16RegValue = u8Data;
-    Ret = STFDRV_CD_SYS_CAM_OBJ_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING)
-        pCIConnection,
-#endif //VIRTUAL_IO_MAPPING
-        &stCamReg
-        );
-
-    if (Ret) {
-        LOG_ERROR("Unable to write reg 0x%04X with data 0x%02X.\n",
-            stCamReg.u16RegAddr, stCamReg.u16RegValue);
-        return STF_ERROR_FATAL;
-    }
-    //printf("write ->[0x%04X] = 0x%02X\n",
-    //    stCamReg.u16RegAddr, stCamReg.u16RegValue);
-
-    return STF_SUCCESS;
-}
-#endif //USE_LINUX_SYSTEM_STARTAND_I2C
-
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
 static STF_RESULT Sensor_I2cWrite16(
     STF_INT nI2c,
     STF_U16 u16Reg,
     STF_U16 u16Data
     )
 {
-#if 0
-    STF_INT nRet;
-    STF_U8 u8Buf[4];
-
-    /* Set I2C slave address */
-    if (ioctl(nI2c, /*I2C_SLAVE*/I2C_SLAVE_FORCE, IMX219_I2C_ADDR)) {
-        LOG_ERROR("Failed to write I2C slave address!\n");
-        return STF_ERROR_BUSY;
-    }
-
-    u8Buf[0] = (u16Reg >> 8) & 0xFF;
-    u8Buf[1] = u16Reg & 0xFF;
-    u8Buf[2] = (u16Data >> 8) & 0xFF;
-    u8Buf[3] = u16Data & 0xFF;
-
-    nRet = write(nI2c, u8Buf, sizeof(u8Buf));
-    if (sizeof(u8Buf) != nRet) {
-        LOG_ERROR("Unable to write reg 0x%04X with data 0x%04X.\n",
-            u16Reg, u16Data);
-        return STF_ERROR_FATAL;
-    }
-#else
     struct i2c_rdwr_ioctl_data stPackets;
     struct i2c_msg stMessages[1];
     STF_U8 u8Buf[4] = { 0 };
@@ -1570,47 +1043,9 @@ static STF_RESULT Sensor_I2cWrite16(
             u16Reg, u16Data);
         return STF_ERROR_FATAL;
     }
-    //printf("write ->[0x%04X] = 0x%04X\n", u16Reg, u16Data);
-#endif
 
     return STF_SUCCESS;
 }
-#else
-static STF_RESULT Sensor_I2cWrite16(
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-    STF_INT nI2c,
-    STF_U16 u16Reg,
-    STF_U16 u16Data
-    )
-{
-    ST_CAM_REG stCamReg;
-    STF_U16 u16Idx;
-    STF_RESULT Ret = STF_SUCCESS;
-
-    STF_ASSERT(pCIConnection);  // null pointer forbidden
-
-    stCamReg.u8Idx = u8IspIdx;
-    stCamReg.u16RegAddr = u16Reg;
-    stCamReg.u16RegValue = u16Data;
-    Ret = STFDRV_CD_SYS_CAM_OBJ_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING)
-        pCIConnection,
-#endif //VIRTUAL_IO_MAPPING
-        &stCamReg
-        );
-
-    if (Ret) {
-        LOG_ERROR("Unable to write reg 0x%04X with data 0x%04X.\n",
-            stCamReg.u16RegAddr, stCamReg.u16RegValue);
-        return STF_ERROR_FATAL;
-    }
-    //printf("write ->[0x%04X] = 0x%04X\n",
-    //    stCamReg.u16RegAddr, stCamReg.u16RegValue);
-
-    return STF_SUCCESS;
-}
-#endif //USE_LINUX_SYSTEM_STARTAND_I2C
 
 static STF_VOID Sensor_ConfigRegister(
     ST_IMX219_CAM *pstSensorCam
@@ -1700,23 +1135,6 @@ static STF_VOID Sensor_ConfigRegister(
             u32DigitalGainLowIdx = nIdx;
         }
 
-#if defined(V4L2_DRIVER)
-#else
-#if !defined(COPY_REGS)
-        Ret = Sensor_I2cWriteRegs(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pstSensorCam->pstSensorPhy->psConnection,
-            pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pstSensorCam->fdI2c,
-            u8Values,
-            3
-            );
-        if (STF_SUCCESS != Ret) {
-            break;
-        }
-#endif //COPY_REGS
-#endif //#if defined(V4L2_DRIVER)
     }
 
     // if it was parallel
@@ -1763,32 +1181,13 @@ static STF_VOID Sensor_ConfigRegister(
             pstSensorCam->u8ModeId);
     }
 
-#if defined(V4L2_DRIVER)
-#else
-#if defined(COPY_REGS)
-    Sensor_I2cWriteRegs(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->fdI2c,
-        pstSensorCam->pu8CurrentSensorModeReg,
-        pstSensorCam->u32Registers * 3
-        );
-#endif //COPY_REGS
-#endif //#if defined(V4L2_DRIVER)
-
     u8Regs[5] = ((g_IMX219_u32ExposureLinesBackup >> 8) & 0xFF);
     u8Regs[6] = (g_IMX219_u32ExposureLinesBackup & 0xFF);
     u8Regs[2] = (g_IMX219_u32AnalogGainBackup & 0xFF);
     u8Regs[3] = ((g_IMX219_u32DigitalGainBackup >> 8) & 0xFF);
     u8Regs[4] = (g_IMX219_u32DigitalGainBackup & 0xFF);
 
-    Ret = Sensor_I2cWriteRegs_3(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
+    Ret = Sensor_I2cWriteReg(
         pstSensorCam->fdI2c,
         u8Regs,
         sizeof(u8Regs)
@@ -1862,352 +1261,132 @@ static STF_RESULT Sensor_GetModeInfo(
     }
     u32Registers = g_stImx219Modes[u8ModeIdx].u32Registers;
 
-#if defined(V4L2_DRIVER)
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_CSI_DATA_FORMAT,
         (STF_U8 *)&csi_data_format
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_CSI_LANE_MODE,
         (STF_U8 *)&csi_lane_mode
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_BINNING_MODE_H,
         (STF_U8 *)&binning_mode_h
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_BINNING_MODE_V,
         (STF_U8 *)&binning_mode_v
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_FRM_LENGTH_0,
         (STF_U8 *)&frm_length[0]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_FRM_LENGTH_1,
         (STF_U8 *)&frm_length[1]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_LINE_LENGTH_0,
         (STF_U8 *)&line_length[0]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_LINE_LENGTH_1,
         (STF_U8 *)&line_length[1]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_X_OUTPUT_SIZE_0,
         (STF_U8 *)&x_output[0]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_X_OUTPUT_SIZE_1,
         (STF_U8 *)&x_output[1]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_Y_OUTPUT_SIZE_0,
         (STF_U8 *)&y_output[0]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_Y_OUTPUT_SIZE_1,
         (STF_U8 *)&y_output[1]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_EXCK_FREQ_0,
         (STF_U8 *)&exck_freq[0]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_EXCK_FREQ_1,
         (STF_U8 *)&exck_freq[1]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_PREPLLCK_VT_DIV,
         (STF_U8 *)&pll_pre_div_1
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_PREPLLCK_OP_DIV,
         (STF_U8 *)&pll_pre_div_2
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_PLL_VT_MPY_0,
         (STF_U8 *)&pll_m_1[0]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_PLL_VT_MPY_1,
         (STF_U8 *)&pll_m_1[1]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_PLL_OP_MPY_0,
         (STF_U8 *)&pll_m_2[0]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_PLL_OP_MPY_1,
         (STF_U8 *)&pll_m_2[1]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_VTPXCK_DIV,
         (STF_U8 *)&pll_div_1[0]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_VTSYCK_DIV,
         (STF_U8 *)&pll_div_1[1]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_OPPXCK_DIV,
         (STF_U8 *)&pll_div_2[0]
         );
     Ret = Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_OPSYCK_DIV,
         (STF_U8 *)&pll_div_2[1]
         );
-#else
-    for (nIdx = 0 ; nIdx < u32Registers * 3 ; nIdx += 3) {
-        if (IS_REG(pu8ModeReg, nIdx, REG_CSI_DATA_FORMAT)) {
-            csi_data_format = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("csi_data_format = %d bits\n", csi_data_format);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_CSI_LANE_MODE)) {
-            csi_lane_mode = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("csi_lane_mode = %d lane\n", (csi_lane_mode + 1));
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_BINNING_MODE_H)) {
-            binning_mode_h = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("binning_mode_h = 0x%02x(%d)\n",
-                binning_mode_h, u8BinMode[binning_mode_h & 0x03]);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_BINNING_MODE_V)) {
-            binning_mode_v = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("binning_mode_v = 0x%02x(%d)\n",
-                binning_mode_v, u8BinMode[binning_mode_v & 0x03]);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_FRM_LENGTH_0)) {
-            frm_length[0] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("frm_length[0] = 0x%02X\n", frm_length[0]);
-        }
-        if (IS_REG(pu8ModeReg, nIdx, REG_FRM_LENGTH_1)) {
-            frm_length[1] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("frm_length[1] = 0x%02X\n", frm_length[1]);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_LINE_LENGTH_0)) {
-            line_length[0] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("line_length[0]=0x%02X\n", line_length[0]);
-        }
-        if (IS_REG(pu8ModeReg, nIdx, REG_LINE_LENGTH_1)) {
-            line_length[1] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("line_length[1]=0x%02X\n", line_length[1]);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_X_OUTPUT_SIZE_0)) {
-            x_output[0] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("x_output[0] = 0x%02X\n", x_output[0]);
-        }
-        if (IS_REG(pu8ModeReg, nIdx, REG_X_OUTPUT_SIZE_1)) {
-            x_output[1] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("x_output[1] = 0x%02X\n", x_output[1]);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_Y_OUTPUT_SIZE_0)) {
-            y_output[0] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("y_output[0] = 0x%02X\n", y_output[0]);
-        }
-        if (IS_REG(pu8ModeReg, nIdx, REG_Y_OUTPUT_SIZE_1)) {
-            y_output[1] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("y_output[1] = 0x%02X\n", y_output[1]);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_EXCK_FREQ_0)) {
-            exck_freq[0] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("exck_freq[0] = 0x%02X\n", exck_freq[0]);
-        }
-        if (IS_REG(pu8ModeReg, nIdx, REG_EXCK_FREQ_1)) {
-            exck_freq[1] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("exck_freq[1] = 0x%02X\n", exck_freq[1]);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_PREPLLCK_VT_DIV)) {
-            pll_pre_div_1 = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("pll_pre_div_1 = 0x%02X\n", pll_pre_div_1);
-        }
-        if (IS_REG(pu8ModeReg, nIdx, REG_PREPLLCK_OP_DIV)) {
-            pll_pre_div_2 = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("pll_pre_div_2 = 0x%02X\n", pll_pre_div_2);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_PLL_VT_MPY_0)) {
-            pll_m_1[0] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("pll_m_1[0] = 0x%02X\n", pll_m_1[0]);
-        }
-        if (IS_REG(pu8ModeReg, nIdx, REG_PLL_VT_MPY_1)) {
-            pll_m_1[1] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("pll_m_1[1] = 0x%02X\n", pll_m_1[1]);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_PLL_OP_MPY_0)) {
-            pll_m_2[0] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("pll_m_2[0] = 0x%02X\n", pll_m_2[0]);
-        }
-        if (IS_REG(pu8ModeReg, nIdx, REG_PLL_OP_MPY_1)) {
-            pll_m_2[1] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("pll_m_2[1] = 0x%02X\n", pll_m_2[1]);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_VTPXCK_DIV)) {
-            pll_div_1[0] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("pll_div_1[0] = 0x%02X\n", pll_div_1[0]);
-        }
-        if (IS_REG(pu8ModeReg, nIdx, REG_VTSYCK_DIV)) {
-            pll_div_1[1] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("pll_div_1[1] = 0x%02X\n", pll_div_1[1]);
-        }
-
-        if (IS_REG(pu8ModeReg, nIdx, REG_OPPXCK_DIV)) {
-            pll_div_2[0] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("pll_div_2[0] = 0x%02X\n", pll_div_2[0]);
-        }
-        if (IS_REG(pu8ModeReg, nIdx, REG_OPSYCK_DIV)) {
-            pll_div_2[1] = pu8ModeReg[nIdx + 2];
-            LOG_DEBUG("pll_div_2[1] = 0x%02X\n", pll_div_2[1]);
-        }
-    }
-#endif //#if defined(V4L2_DRIVER)
     Ret = Sensor_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_FINE_INTEG_TIME_0,
         (STF_U8 *)&fine_integration_time[0]
         );
     Ret = Sensor_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_FINE_INTEG_TIME_1,
         (STF_U8 *)&fine_integration_time[1]
@@ -2262,11 +1441,8 @@ static STF_RESULT Sensor_GetModeInfo(
     frm_length_v = ((frm_length[0] << 8) | frm_length[1]);
     fine_integration_time_v = ((fine_integration_time[0] << 8)
         | fine_integration_time[1]);
-#if 0
-    trow = ((line_length_v * 1000000.0) / (2.0 * pll_video_pxl_clk));
-#else
+
     trow = ((line_length_v * 1000000.0) / (1.0 * pll_video_pxl_clk));
-#endif //#if 0
     frame_t = trow * frm_length_v;
 
     LOG_DEBUG("line_length_v=%u frm_length_v=%u\n", line_length_v, frm_length_v);
@@ -2276,7 +1452,6 @@ static STF_RESULT Sensor_GetModeInfo(
     pstModes->u16Height = y_output[1] | (y_output[0] << 8);
     pstModes->u16VerticalTotal = frm_length_v;
     g_u32VerticalTotal = frm_length_v;
-    //LOG_DEBUG("************ hts=%u vts=%u ************\n", hts_v, vts_v);
 
     pstModes->u8SupportFlipping = SENSOR_FLIP_NONE;
 #if 0
@@ -2298,11 +1473,9 @@ static STF_RESULT Sensor_GetModeInfo(
         / (((line_length_v) / (1 * pll_video_pxl_clk)) * frm_length_v) + 0.5);
 
     pstModes->u8MipiLanes = (csi_lane_mode + 1);
-    //printf("pstModes->u8MipiLanes = %d\n", pstModes->u8MipiLanes);
 
     pstModes->u8BitDepth = csi_data_format;
     pstSensorCam->dCurFps = pstModes->dFrameRate;
-    //printf("the dFrameRate = %f\n", pstModes->dFrameRate);
     pstSensorCam->u32FixedFps = (STF_U32)(pstSensorCam->dCurFps + 0.5);
     if (0.0 == ext_clk) {
         pstSensorCam->u32InitClk = (12 * 1000000);
@@ -2384,7 +1557,6 @@ static STF_RESULT sGetState(
 
     pstSensorCam = container_of(pstHandle, ST_IMX219_CAM, stFuncs);
 
-    //LOG_INFO("**IMX219 MIPI sensor sGetState** \n");
     TUNE_SLEEP(1);
     STF_ASSERT(pstStatus);
 
@@ -2519,17 +1691,12 @@ static STF_RESULT sSetMode(
         pstSensorCam->stSensorMode.u16Width - 1;
     pstSensorCam->pstSensorPhy->psGasket->uiHeight =
         pstSensorCam->stSensorMode.u16Height - 1;
-#if 0
-    pstSensorCam->pstSensorPhy->psGasket->bVSync =
-        g_stSensorModes[u8ModeIdx].u8VSync;
-    pstSensorCam->pstSensorPhy->psGasket->bHSync =
-        g_stSensorModes[u8ModeIdx].u8HSync;
-#else
+
     pstSensorCam->pstSensorPhy->psGasket->bVSync =
         (g_stInterface.u8SensorPolarity & 0x01) ? (STF_TRUE) : (STF_FALSE);
     pstSensorCam->pstSensorPhy->psGasket->bHSync =
         (g_stInterface.u8SensorPolarity & 0x02) ? (STF_TRUE) : (STF_FALSE);
-#endif //0
+
     pstSensorCam->pstSensorPhy->psGasket->u8ParallelBitdepth =
         pstSensorCam->stSensorMode.u8BitDepth;
     V_LOG_DEBUG("gasket=%d, width=%d, height=%d, vsync=%d, hsync=%d, "\
@@ -2547,10 +1714,6 @@ static STF_RESULT sSetMode(
 }
 
 static STF_RESULT Sensor_EnableCtrl(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     int nI2c,
     STF_BOOL8 bEnable
     )
@@ -2565,10 +1728,6 @@ static STF_RESULT Sensor_EnableCtrl(
     /* Sensor specific operation */
     if (bEnable) {
         Sensor_I2cWriteRegs(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pCIConnection,
-            u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
             nI2c,
             au8EnableRegs,
             sizeof(au8EnableRegs)
@@ -2576,10 +1735,6 @@ static STF_RESULT Sensor_EnableCtrl(
         usleep(2000);
     } else {
         Sensor_I2cWriteRegs(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pCIConnection,
-            u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
             nI2c,
             au8DisableRegs,
             sizeof(au8DisableRegs)
@@ -2628,18 +1783,6 @@ static STF_RESULT sEnable(
 #endif //SIFIVE_ISP
     sSetFlipMirror(pstHandle, pstSensorCam->u8Flipping);
 
-#if defined(V4L2_DRIVER)
-#else
-    Sensor_EnableCtrl(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->fdI2c,
-        STF_ENABLE
-        );
-    //usleep(SENSOR_MAX_FRAME_TIME);
-#endif //#if defined(V4L2_DRIVER)
     pstSensorCam->bEnabled = STF_TRUE;
     //LOG_DEBUG("camera enabled\n");
 
@@ -2665,17 +1808,6 @@ static STF_RESULT sDisable(
         //LOG_INFO("Disabling IMX219 MIPI camera\n");
         pstSensorCam->bEnabled = STF_FALSE;
 
-#if defined(V4L2_DRIVER)
-#else
-        Sensor_EnableCtrl(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pstSensorCam->pstSensorPhy->psConnection,
-            pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pstSensorCam->fdI2c,
-            STF_DISABLE
-            );
-#endif //#if defined(V4L2_DRIVER)
         // delay of a frame period to ensure sensor has stopped
         // flFrameRate in Hz, change to MHz to have micro seconds
         delay = (int)floor((1.0 / pstSensorCam->stSensorMode.dFrameRate)
@@ -2733,7 +1865,6 @@ static STF_RESULT sGetInfo(
 
     pstSensorCam = container_of(pstHandle, ST_IMX219_CAM, stFuncs);
 
-    //V_LOG_INFO(">>>>>>>>>>>>\n");
     TUNE_SLEEP(1);
     ASSERT_INITIALIZED(pstSensorCam->pstSensorPhy);
     STF_ASSERT(pstInfo);
@@ -2743,30 +1874,10 @@ static STF_RESULT sGetInfo(
 
     pstInfo->enBayerOriginal = SENSOR_BAYER_FORMAT;
     pstInfo->enBayerEnabled = pstInfo->enBayerOriginal;
-//    // assumes that when flipping changes the bayer pattern
-//    if (SENSOR_FLIP_NONE != pstInfo->stStatus.u8Flipping) {
-//        pstInfo->enBayerEnabled = MosaicFlip(
-//            pstInfo->enBayerOriginal,
-//#if 1
-//            0,
-//#else
-//            (pstInfo->stStatus.u8Flipping & SENSOR_FLIP_HORIZONTAL) ? (1) : (0),
-//#endif
-//            (pstInfo->stStatus.u8Flipping & SENSOR_FLIP_VERTICAL) ? (1) : (0)
-//            );
-//        // bayer format is not affected by flipping since we change
-//        // registers to 6 instead of 2
-//    }
+
     sprintf(pstInfo->pszSensorName, IMX219MIPI_SENSOR_INFO_NAME);
 #ifndef NO_DEV_CHECK
-  #if defined(ADD_USLEEP_FOR_I2C_READ)
-    usleep(1);
-  #endif //#if defined(ADD_USLEEP_FOR_I2C_READ)
     Ret = Sensor_I2cRead16(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_MODEL_ID_0,
         &u16Id
@@ -2789,7 +1900,6 @@ static STF_RESULT sGetInfo(
     // other information should be filled by sGetInfo()
     pstInfo->u32ModeCount = ARRAY_SIZE(g_stImx219Modes);
     pstInfo->enExposureGainMethod = IMX219_EXPO_GAIN_METHOD;
-    //LOG_DEBUG("Provided BayerOriginal = %d\n", pstInfo->enBayerOriginal);
 
     return STF_SUCCESS;
 }
@@ -2806,19 +1916,11 @@ static STF_RESULT sGetRegister(
 
     pstSensorCam = container_of(pstHandle, ST_IMX219_CAM, stFuncs);
 
-    //V_LOG_DEBUG(">>>>>>>>>>>>\n");
     TUNE_SLEEP(1);
     ASSERT_INITIALIZED(pstSensorCam->pstSensorPhy);
     STF_ASSERT(pu16RegVal);
 
-#if defined(ADD_USLEEP_FOR_I2C_READ)
-    usleep(1);
-#endif //#if defined(ADD_USLEEP_FOR_I2C_READ)
     Sensor_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         u16RegAddr,
         &u8RegValue
@@ -2849,10 +1951,6 @@ static STF_RESULT sSetRegister(
     u8Regs[1] = u16RegAddr & 0xFF;
     u8Regs[2] = u16RegVal & 0xFF;
     Sensor_I2cWriteRegs(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         u8Regs,
         sizeof(u8Regs)
@@ -2875,16 +1973,12 @@ static STF_DOUBLE Sensor_ComputeGains(
     STF_ASSERT(pu32DigitalGain);
 
     // Analog gain formula
-    // rounddown(256.0 - (256.0 / dGain) + 0.5)
-#if 0
-    *pu32AnalogGain = (STF_U32)(256.0 - (256.0 / dGain) + 0.5);
-#else
+    // rounddown(256.0 - (256.0 / dGain))
     *pu32AnalogGain = (STF_U32)(256.0 - (256.0 / dGain));
-#endif //#if 0
     dAnalogGain = (256.0 / (256.0 - *pu32AnalogGain));
 
     // Digital gain formula
-    // rounddown(dGain * 256.0 + 0.5)
+    // rounddown(dGain * 256.0)
 #if defined(ENABLE_SENSOR_DIGITAL_GAIN)
     dDigitalGain = dGain / dAnalogGain;
     if (1.0 > dDigitalGain) {
@@ -2893,11 +1987,8 @@ static STF_DOUBLE Sensor_ComputeGains(
 #else
     dDigitalGain = 1.0;
 #endif //#if defined(ENABLE_SENSOR_DIGITAL_GAIN)
-#if 0
-    *pu32DigitalGain = (STF_U32)(dDigitalGain * 256.0 + 0.5);
-#else
+
     *pu32DigitalGain = (STF_U32)(dDigitalGain * 256.0);
-#endif //#if 0
     dDigitalGain = (*pu32DigitalGain / 256.0);
 
     dActualGain = dAnalogGain * dDigitalGain;
@@ -2929,7 +2020,6 @@ static STF_RESULT sGetGainRange(
     )
 {
 
-    //V_LOG_INFO(">>>>>>>>>>>>\n");
     TUNE_SLEEP(1);
     STF_ASSERT(pdMin);
     STF_ASSERT(pdMax);
@@ -2957,30 +2047,18 @@ static STF_RESULT sGetCurrentGain(
 
     pstSensorCam = container_of(pstHandle, ST_IMX219_CAM, stFuncs);
 
-    //V_LOG_DEBUG(">>>>>>>>>>>>\n");
     TUNE_SLEEP(1);
     ASSERT_INITIALIZED(pstSensorCam->pstSensorPhy);
     STF_ASSERT(pdCurrentGain);
 
 #if defined(GET_CURRENT_FROM_SENSOR)
-  #if defined(ADD_USLEEP_FOR_I2C_READ)
-    usleep(1);
-  #endif //#if defined(ADD_USLEEP_FOR_I2C_READ)
     Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_ANA_GAIN,
         (STF_U8 *)&u32AnalogGain
         );
     u32AnalogGain &= 0xFF;
     Sensor_I2cRead16(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_DIG_GAIN,
         (STF_U16 *)&u32DigitalGain
@@ -3033,11 +2111,7 @@ static STF_RESULT sSetGain(
     u8GainRegs[3] = ((u32DigitalGain >> 8) & 0xFF);
     u8GainRegs[4] = (u32DigitalGain & 0xFF);
     //dActualGain = Sensor_ComputeRegToGains(u32AnalogGain, u32DigitalGain);
-    Sensor_I2cWriteRegs_3(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
+    Sensor_I2cWriteReg(
         pstSensorCam->fdI2c,
         u8GainRegs,
         sizeof(u8GainRegs)
@@ -3111,14 +2185,7 @@ static STF_RESULT sGetExposure(
     STF_ASSERT(pu32Exposure);
 
 #if defined(GET_CURRENT_FROM_SENSOR)
-  #if defined(ADD_USLEEP_FOR_I2C_READ)
-    usleep(1);
-  #endif //#if defined(ADD_USLEEP_FOR_I2C_READ)
     Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_EXPOSURE + 0x00,
         &u8Exposure
@@ -3126,10 +2193,6 @@ static STF_RESULT sGetExposure(
     u32ExposureLines = u8Exposure;
     u32ExposureLines <<= 8;
     Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_EXPOSURE + 0x01,
         &u8Exposure
@@ -3168,15 +2231,9 @@ static STF_RESULT sSetExposure(
     TUNE_SLEEP(1);
     ASSERT_INITIALIZED(pstSensorCam->pstSensorPhy);
 
-#if 1
     if (SENSOR_MAX_EXPOSURE < u32Exposure) {
         u32Exposure = SENSOR_MAX_EXPOSURE;
     }
-#else
-    if (pstSensorCam->stSensorMode.u32ExposureMax <= u32Exposure) {
-        u32Exposure = pstSensorCam->stSensorMode.u32ExposureMax;
-    }
-#endif //1
 
     pstSensorCam->u32Exposure = u32Exposure;
 
@@ -3192,11 +2249,7 @@ static STF_RESULT sSetExposure(
         //    * pstSensorCam->u32FixedFps / fps;
         u8FrameLengthRegs[2] = (u16VerticalTotal >> 8);
         u8FrameLengthRegs[3] = (u16VerticalTotal & 0xff);
-        Sensor_I2cWriteRegs_3(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pstSensorCam->pstSensorPhy->psConnection,
-            pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
+        Sensor_I2cWriteReg(
             pstSensorCam->fdI2c,
             u8FrameLengthRegs,
             sizeof(u8FrameLengthRegs)
@@ -3214,11 +2267,7 @@ static STF_RESULT sSetExposure(
     u8ExposureRegs[3] = (u32ExposureLines & 0xff);
 #endif //#if defined(ENABLE_AUTO_EXTEND_VERTICAL_TOTAL)
 
-    Sensor_I2cWriteRegs_3(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
+    Sensor_I2cWriteReg(
         pstSensorCam->fdI2c,
         u8ExposureRegs,
         sizeof(u8ExposureRegs)
@@ -3282,12 +2331,6 @@ static STF_RESULT sGetFocusRange(
     STF_U16 *pu16Max
     )
 {
-//    ST_IMX219_CAM *pstSensorCam = NULL;
-
-//    pstSensorCam = container_of(pstHandle, ST_IMX219_CAM, stFuncs);
-//
-//    TUNE_SLEEP(1);
-//    ASSERT_INITIALIZED(pstSensorCam->pstSensorPhy);
     STF_ASSERT(pu16Min);
     STF_ASSERT(pu16Max);
 
@@ -3383,14 +2426,7 @@ static STF_RESULT sSetFlipMirror(
     TUNE_SLEEP(1);
     ASSERT_INITIALIZED(pstSensorCam->pstSensorPhy);
 
-#if defined(ADD_USLEEP_FOR_I2C_READ)
-    usleep(1);
-#endif //#if defined(ADD_USLEEP_FOR_I2C_READ)
     ret = Sensor_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_IMG_ORIENTATION,
         &u8FlipMirror
@@ -3419,10 +2455,6 @@ static STF_RESULT sSetFlipMirror(
             break;
     }
     Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_IMG_ORIENTATION,
         u8FlipMirror
@@ -3440,7 +2472,6 @@ static STF_RESULT sGetFixedFPS(
 
     pstSensorCam = container_of(pstHandle, ST_IMX219_CAM, stFuncs);
 
-    //V_LOG_DEBUG(">>>>>>>>>>>>\n");
     TUNE_SLEEP(1);
     if (NULL != pu16FixedFps) {
         *pu16FixedFps = (STF_U16)pstSensorCam->u32FixedFps;
@@ -3483,39 +2514,11 @@ static STF_RESULT sSetFPS(
     u8FrameLengthRegs[2] = ((u32Framlines >> 8) & 0xFF);
     u8FrameLengthRegs[3] = (u32Framlines & 0xFF);
 
-    Sensor_I2cWriteRegs_3(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
+    Sensor_I2cWriteReg(
         pstSensorCam->fdI2c,
         u8FrameLengthRegs,
         sizeof(u8FrameLengthRegs)
         );
-//#if defined(ADD_USLEEP_FOR_I2C_READ)
-//    usleep(1);
-//#endif //#if defined(ADD_USLEEP_FOR_I2C_READ)
-//    Sensor_I2cRead(
-//#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-//        pstSensorCam->pstSensorPhy->psConnection,
-//        pstSensorCam->pstSensorPhy->u8IspIdx,
-//#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-//        pstSensorCam->fdI2c,
-//        REG_FRM_LENGTH_0,
-//        &u8FrameLengthRegs[2]
-//        );
-//#if defined(ADD_USLEEP_FOR_I2C_READ)
-//    usleep(1);
-//#endif //#if defined(ADD_USLEEP_FOR_I2C_READ)
-//    Sensor_I2cRead(
-//#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-//        pstSensorCam->pstSensorPhy->psConnection,
-//        pstSensorCam->pstSensorPhy->u8IspIdx,
-//#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-//        pstSensorCam->fdI2c,
-//        REG_FRM_LENGTH_1,
-//        &u8FrameLengthRegs[3]
-//        );
 
     pstSensorCam->dCurFps = dRealFps;
     g_u32VerticalTotal = u32Framlines;
@@ -3530,10 +2533,6 @@ static STF_RESULT sSetExposureAndGain(
     STF_U8 u8Context
     )
 {
-#if 0
-    sSetExposure(pstHandle, u32Exposure, u8Context);
-    sSetGain(pstHandle, dGain, u8Context);
-#else
     STF_U8 u8FrameLengthRegs[] = {
         0x01, 0x60,         // Offset of FRM_LENGTH_A
 
@@ -3564,15 +2563,9 @@ static STF_RESULT sSetExposureAndGain(
 
     //01. Exposure part
     //
-  #if 1
     if (SENSOR_MAX_EXPOSURE < u32Exposure) {
         u32Exposure = SENSOR_MAX_EXPOSURE;
     }
-  #else
-    if (pstSensorCam->stSensorMode.u32ExposureMax <= u32Exposure) {
-        u32Exposure = pstSensorCam->stSensorMode.u32ExposureMax;
-    }
-  #endif //1
 
     pstSensorCam->u32Exposure = u32Exposure;
 
@@ -3584,15 +2577,9 @@ static STF_RESULT sSetExposureAndGain(
   #if defined(ENABLE_AUTO_EXTEND_VERTICAL_TOTAL)
     if (u32ExposureLines > (g_u32VerticalTotal - 4)) {
         u16VerticalTotal = u32ExposureLines + 4;
-        //u16VerticalTotal = pstSensorCam->stSensorMode.u16VerticalTotal
-        //    * pstSensorCam->u32FixedFps / fps;
         u8FrameLengthRegs[2] = (u16VerticalTotal >> 8);
         u8FrameLengthRegs[3] = (u16VerticalTotal & 0xff);
-        Sensor_I2cWriteRegs_3(
-    #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pstSensorCam->pstSensorPhy->psConnection,
-            pstSensorCam->pstSensorPhy->u8IspIdx,
-    #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
+        Sensor_I2cWriteReg(
             pstSensorCam->fdI2c,
             u8FrameLengthRegs,
             sizeof(u8FrameLengthRegs)
@@ -3609,15 +2596,6 @@ static STF_RESULT sSetExposureAndGain(
     u8Regs[5] = (u32ExposureLines >> 8);
     u8Regs[6] = (u32ExposureLines & 0xff);
   #endif //#if defined(ENABLE_AUTO_EXTEND_VERTICAL_TOTAL)
-    //V_LOG_DEBUG("Exposure - time=%d us, reg value=0x%04X, lines = %d\n",
-    //    pstSensorCam->u32Exposure,
-    //    u32ExposureLines,
-    //    u32ExposureLines
-    //    );
-    //LOG_INFO("g_u32VerticalTotal = %d, u32Exposure = %d, dExposureMin = %lf, u32ExposureLines = %d\n",
-    //    g_u32VerticalTotal, u32Exposure, pstSensorCam->stSensorMode.dExposureMin, u32ExposureLines);
-    //LOG_INFO("stSensorMode.u16VerticalTotal = %d, u32FixedFps = %d, u16VerticalTotal = %d, dCurFps = %lf\n",
-    //    pstSensorCam->stSensorMode.u16VerticalTotal, pstSensorCam->u32FixedFps, u16VerticalTotal, pstSensorCam->dCurFps);
 
     //02. Gain part
     //
@@ -3631,29 +2609,14 @@ static STF_RESULT sSetExposureAndGain(
     u8Regs[2] = (u32AnalogGain & 0xFF);
     u8Regs[3] = ((u32DigitalGain >> 8) & 0xFF);
     u8Regs[4] = (u32DigitalGain & 0xFF);
-    //dActualGain = Sensor_ComputeRegToGains(u32AnalogGain, u32DigitalGain);
-    //V_LOG_DEBUG("Gain - dGain=%lf, reg again=0x%02X, dgain=0x%04X, "\
-    //    "actual gain=%lf\n",
-    //    dGain,
-    //    u32AnalogGain,
-    //    u32DigitalGain,
-    //    dActualGain
-    //    );
-    //LOG_INFO("dGain = %lf, u32Gain = 0x%08X, dActualGain = %lf\n",
-    //    dGain, u32Gain, dActualGain);
 
     //03. Program register to sensor part
     //
-    Sensor_I2cWriteRegs_3(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
+    Sensor_I2cWriteReg(
         pstSensorCam->fdI2c,
         u8Regs,
         sizeof(u8Regs)
         );
-#endif //0
 
     return STF_SUCCESS;
 }
@@ -3693,7 +2656,6 @@ static STF_VOID *Test(
 
     sleep(10);
     while (1) {
-        //LOG_DEBUG("################ u32Fps = %d ################\n", u32Fps);
         u32FixedFps = pstSensorCam->u32FixedFps;
         if (u32FixedFps < u32Fps) {
             u32Fps = u32FixedFps;
@@ -3709,23 +2671,12 @@ static STF_VOID *Test(
             * pstSensorCam->u32FixedFps / u32Fps;
         u8FrameLengthRegs[2] = (u16VerticalTotal >> 8);
         u8FrameLengthRegs[3] = (u16VerticalTotal & 0xff);
-        Sensor_I2cWriteRegs_3(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pstSensorCam->pstSensorPhy->psConnection,
-            pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
+        Sensor_I2cWriteReg(
             pstSensorCam->fdI2c,
             u8FrameLengthRegs,
             sizeof(u8FrameLengthRegs)
             );
-        //LOG_DEBUG("^^^^^^^^^^^^^^^^ 0x0160 = %x, 0x0161 = %x^^^^^^^^^^^^^^^^\n",
-        //    u8Regs[2], u8Regs[3]);
-        //LOG_DEBUG("^^^^^^^^^^^^^^^^ pstSensorCam->u32FixedFps = %d, u32Fps=%d"\
-        //    "^^^^^^^^^^^^^^^^\n", pstSensorCam->u32FixedFps, u32Fps);
-        //LOG_DEBUG("^^^^^^^^^^^^^^^^ u16VerticalTotal = %d, "\
-        //    "pstSensorCam->stSensorMode->u16VerticalTotal = %d "\
-        //    "^^^^^^^^^^^^^^^^\n", u16VerticalTotal,
-        //    pstSensorCam->stSensorMode.u16VerticalTotal);
+
         pstSensorCam->dCurFps = u32Fps;
 
         sleep(10);
@@ -3739,10 +2690,6 @@ static STF_VOID *Test(
 }
 
 STF_RESULT IMX219MIPI_Create(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     SENSOR_HANDLE **ppstHandle,
     STF_U8 u8Index
     )
@@ -3760,45 +2707,22 @@ STF_RESULT IMX219MIPI_Create(
 
     V_LOG_INFO("<<<<<<<<<<<<\n");
 
-#ifdef UNUSED_CODE_AND_VARIABLE
-    STF_CHAR szDevName[64];
-    STF_CHAR szPath[128];
-    STF_INT fd = 0;
+#ifndef USE_LINUX_SYSTEM_STARTAND_I2C
+	LOG_ERROR("Create IMX219 mipi sensor must use linux standart I2C interface!! \n");
+	return STF_ERROR_DEVICE_UNAVAILABLE;
+#endif //USE_LINUX_SYSTEM_STARTAND_I2C
 
-    STF_MEMSET((void *)szDevName, 0, sizeof(szDevName));
-    STF_MEMSET((void *)szAdaptor, 0, sizeof(szAdaptor));
-    STF_MEMSET((void *)szPath, 0, sizeof(szPath));
-    sprintf(szDevName, "%s%d", DEV_PATH, u8Index);
-    fd = open(szDevName, O_RDWR);
-    if (0 > fd) {
-        LOG_ERROR("open %s error\n", szDevName);
-        return STF_ERROR_FATAL;
-    }
+#ifndef V4L2_DRIVER
+	LOG_ERROR("Create IMX219 mipi sensor must use linux standart v4l2 drviers!! \n");
+return STF_ERROR_DEVICE_UNAVAILABLE;
+#endif //V4L2_DRIVER
 
-    ioctl(fd, GETI2CADDR, &u32I2cAddr);
-    ioctl(fd, GETI2CCHN, &nChn);
-    ioctl(fd, GETIMAGER, &u8Imager);
-    ioctl(fd, GETSENSORPATH, szPath);
-
-    close(fd);
-    printf("%s opened OK, i2c-addr=0x%x, chn = %d\n",
-        szDevName, u32I2cAddr, nChn);
-    sprintf(szAdaptor, "%s-%d", "i2c", nChn);
-    STF_MEMSET((void *)szExtraCfg, 0, sizeof(szDevName));
-    if (szPath[0] == 0) {
-        sprintf(szExtraCfg, "%s%s%d-config.txt",
-            EXTRA_CFG_PATH, "sensor" , u8Index);
-    } else {
-        strcpy(szExtraCfg, szPath);
-    }
-#else
     u32I2cAddr = IMX219_I2C_ADDR;
     nChn = IMX219_I2C_CHN;
     u8Imager = 1;
     V_LOG_INFO("i2c-addr=0x%x, chn = %d\n", u32I2cAddr, nChn);
     sprintf(szAdaptor, "%s-%d", "i2c", nChn);
     sprintf(szExtraCfg, "%s%s%d-config.txt", EXTRA_CFG_PATH, "sensor", u8Index);
-#endif //UNUSED_CODE_AND_VARIABLE
 
     V_LOG_INFO("**IMX219MIPI SENSOR**\n");
     TUNE_SLEEP(1);
@@ -3849,7 +2773,6 @@ STF_RESULT IMX219MIPI_Create(
 
     /* Init sensor config */
     pstSensorCam->u8Imager = u8Imager;
-    //pstSensorCam->bUseSensorAecAgc = DEFAULT_USE_AEC_AGC;
 
     // customers should change the clock!
     pstSensorCam->dRefClock = 24 * 1000 * 1000;
@@ -3865,7 +2788,6 @@ STF_RESULT IMX219MIPI_Create(
     pstSensorCam->pu8CurrentSensorModeReg = NULL;
     pstSensorCam->u32Registers = 0;
 
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     /* Init i2c */
     V_LOG_INFO("u32I2cAddr = 0x%X\n", u32I2cAddr);
     Ret = FindI2cDev(
@@ -3889,16 +2811,8 @@ STF_RESULT IMX219MIPI_Create(
         return STF_ERROR_DEVICE_NOT_FOUND;
     }
 
-#endif //USE_LINUX_SYSTEM_STARTAND_I2C
 #ifndef NO_DEV_CHECK
-  #if defined(ADD_USLEEP_FOR_I2C_READ)
-    usleep(1);
-  #endif //#if defined(ADD_USLEEP_FOR_I2C_READ)
     Ret = Sensor_I2cRead16(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         REG_MODEL_ID_0,
         &u16ChipVersion
@@ -3922,22 +2836,13 @@ STF_RESULT IMX219MIPI_Create(
     }
 
 #endif //CONFIG_REG_DEBUG
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-  #if defined(ADD_USLEEP_FOR_I2C_READ)
-    usleep(1);
-  #endif //#if defined(ADD_USLEEP_FOR_I2C_READ)
 	Ret = Sensor_I2cRead16(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
 	    pstSensorCam->fdI2c,
 	    REG_MODEL_ID_0,
 	    &u16ChipVersion
 	    );
 	V_LOG_INFO("Check imx219 chip version: 0x%x\n", u16ChipVersion);
 
-#endif //#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     // need i2c to have been found to read mode
     Sensor_GetModeInfo(
         pstSensorCam,
@@ -3946,12 +2851,7 @@ STF_RESULT IMX219MIPI_Create(
         );
 
     /* Init ISP gasket phy */
-    pstSensorCam->pstSensorPhy = SensorPhyInit(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pCIConnection,
-        u8IspIdx
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        );
+    pstSensorCam->pstSensorPhy = SensorPhyInit();
     if (!pstSensorCam->pstSensorPhy) {
         LOG_ERROR("Failed to create sensor phy!\n");
         close(pstSensorCam->fdI2c);
@@ -3959,8 +2859,6 @@ STF_RESULT IMX219MIPI_Create(
         *ppstHandle = NULL;
         return STF_ERROR_DEVICE_NOT_FOUND;
     }
-
-    //pthread_create(&tid, NULL, Test, pstSensorCam);
 
     return STF_SUCCESS;
 }
