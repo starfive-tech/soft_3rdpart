@@ -62,12 +62,8 @@
 #endif //SIFIVE_ISP
 #define SC2235_EXPO_GAIN_METHOD     (EN_EXPO_GAIN_METHOD_SAME_TIME)
 
-#if defined(V4L2_DRIVER)
 //#define SC2235_I2C_CHN              (1)     // For JH7100 VisionFive
 #define SC2235_I2C_CHN              (4)     // For JH7110
-#else
-#define SC2235_I2C_CHN              (0)
-#endif //#if defined(V4L2_DRIVER)
 #define SC2235_I2C_ADDR             (0x30)      // in 7-bits
 #define SC2235_WRITE_ADDR           (0x60 >> 1)
 #define SC2235_READ_ADDR            (0x61 >> 1)
@@ -447,41 +443,23 @@ static STF_U16 g_stRegisters_1080p_30fps[] = {
 static ST_SENSOR_MODE g_stSensorModes[] = {
     // This setting is for sensor clock 24MHz.
     // sensor clock = 24MHz, dvp pclk=81MHz, hsync=36KHz hblanking=4.08us, vsync=30Hz
-#if 1
     // Max Frame Length = 3600 = 100ms / 27777.777ns
     {{10, 1920, 1080, 30, 12.345679, 2250, 3600, SENSOR_FLIP_BOTH, 29, 200000, 0, 4}, 1, 1, 27778,
         g_stRegisters_1080p_30fps, ARRAY_SIZE(g_stRegisters_1080p_30fps)},
-#elif 0
-    // Max Frame Length = 7200 = 100ms / 27777.777ns
-    {{10, 1920, 1080, 30, 12.345679, 2250, 7200, SENSOR_FLIP_BOTH, 29, 200000, 0, 4}, 1, 1, 27778,
-        g_stRegisters_1080p_30fps, ARRAY_SIZE(g_stRegisters_1080p_30fps)},
-#endif
 };
 static STF_U8 g_u8SensorModeNum = 0;
 
 
 // used before implementation therefore declared here
 static STF_RESULT Sensor_ConfigRegister(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     STF_INT nI2c,
     STF_U8 u8ModeId
     );
 static STF_RESULT Sensor_AecAgcCtrl(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     int nI2c,
     STF_BOOL8 bEnable
     );
 static STF_RESULT Sensor_EnableCtrl(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     int nI2c,
     STF_BOOL8 bEnable
     );
@@ -505,10 +483,6 @@ static void Sensor_WriteExposure(
     STF_U32 u32ExposureLines
     );
 static STF_RESULT Sensor_FlipImage(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     int nI2c,
     STF_U8 u8HFlip,
     STF_U8 u8VFlip
@@ -532,8 +506,6 @@ static STF_RESULT sSetExposureAndGain(
     STF_U8 u8Context
     );
 
-
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
 static STF_RESULT Sensor_I2cRead(
     STF_INT nI2c,
     STF_U16 u16Reg,
@@ -566,45 +538,10 @@ static STF_RESULT Sensor_I2cRead(
         LOG_ERROR("Unable to read reg 0x%04X.\n", u16Reg);
         return STF_ERROR_FATAL;
     }
-    //printf("read  <-[0x%04x] = 0x%02x\n", u16Reg,  *pu8Data);
 
     return STF_SUCCESS;
 }
-#else
-static STF_RESULT Sensor_I2cRead(
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-    STF_INT nI2c,
-    STF_U16 u16Reg,
-    STF_U8 *pu8Data
-    )
-{
-    ST_CAM_REG stCamReg;
-    STF_RESULT Ret = STF_SUCCESS;
 
-    STF_ASSERT(pCIConnection);  // null pointer forbidden
-    STF_ASSERT(pu8Data);        // null pointer forbidden
-
-    stCamReg.u8Idx = u8IspIdx;
-    stCamReg.u16RegAddr = u16Reg;
-    Ret = STFDRV_CD_SYS_CAM_OBJ_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING)
-        pCIConnection,
-#endif //VIRTUAL_IO_MAPPING
-        &stCamReg
-        );
-    if (Ret) {
-        LOG_ERROR("Unable to read reg 0x%04X.\n", stCamReg.u16RegAddr);
-        return STF_ERROR_FATAL;
-    }
-
-    *pu8Data = (STF_U8)stCamReg.u16RegValue;
-
-    return STF_SUCCESS;
-}
-#endif //USE_LINUX_SYSTEM_STARTAND_I2C
-
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
 static STF_RESULT Sensor_I2cWrite(
     STF_INT nI2c,
     STF_U16 u16Reg,
@@ -636,91 +573,16 @@ static STF_RESULT Sensor_I2cWrite(
 
     return STF_SUCCESS;
 }
-#else
-static STF_RESULT Sensor_I2cWrite(
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-    STF_INT nI2c,
-    STF_U16 u16Reg,
-    STF_U8 u8Data
-    )
-{
-    ST_CAM_REG stCamReg;
-    STF_RESULT Ret = STF_SUCCESS;
-
-    stCamReg.u8Idx = u8IspIdx;
-    stCamReg.u16RegAddr = u16Reg;
-    stCamReg.u16RegValue = u8Data;
-    Ret = STFDRV_CD_SYS_CAM_OBJ_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING)
-        pCIConnection,
-#endif //VIRTUAL_IO_MAPPING
-        &stCamReg
-        );
-
-    if (Ret) {
-        LOG_ERROR("Unable to write reg 0x%04x with data 0x%02x.\n",
-            stCamReg.u16RegAddr, stCamReg.u16RegValue);
-        return STF_ERROR_FATAL;
-    }
-
-    return STF_SUCCESS;
-}
-#endif //USE_LINUX_SYSTEM_STARTAND_I2C
 
 static STF_RESULT Sensor_ConfigRegister(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     STF_INT nI2c,
     STF_U8 u8ModeId
     )
 {
-#if defined(V4L2_DRIVER)
-#else
-    STF_U16 *pu16Registers;
-    STF_U32 u32RegNum;
-    STF_U32 u32Idx;
-    STF_RESULT Ret;
-
-    ASSERT_MODE_RANGE(u8ModeId);
-
-    pu16Registers = g_stSensorModes[u8ModeId].pu16Registers;
-    u32RegNum = g_stSensorModes[u8ModeId].u32RegNum;
-
-    V_LOG_INFO("**SC2235 DVP sensor mode_id=%d reg_num=%d**\n",
-        u8ModeId, u32RegNum);
-
-    for (u32Idx = 0; u32Idx < u32RegNum; u32Idx += 2) {
-        Ret = Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pCIConnection,
-            u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            nI2c,
-            pu16Registers[u32Idx],
-            pu16Registers[u32Idx + 1]
-            );
-        if (Ret != STF_SUCCESS) {
-            LOG_ERROR("sc2235 dvp sensor Set mode %d failed, Ret = %d(0x%08X)\n",
-                u8ModeId,
-                Ret,
-                Ret
-                );
-            return Ret;
-        }
-    }
-#endif //#if defined(V4L2_DRIVER)
-
     return STF_SUCCESS;
 }
 
 static STF_RESULT Sensor_AecAgcCtrl(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     int nI2c,
     STF_BOOL8 bEnable
     )
@@ -729,10 +591,6 @@ static STF_RESULT Sensor_AecAgcCtrl(
     STF_RESULT Ret = STF_SUCCESS;
 
     if (STF_SUCCESS != (Ret = Sensor_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pCIConnection,
-        u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         nI2c,
         SENSOR_AECAGC_CTRL_REG_ADDR,
         &u8RegValue))) {
@@ -750,10 +608,6 @@ static STF_RESULT Sensor_AecAgcCtrl(
             V_LOG_INFO("sc2235 dvp sensor AEC and AGC control by ISP!\n");
         }
         Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pCIConnection,
-            u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
             nI2c,
             SENSOR_AECAGC_CTRL_REG_ADDR,
             u8RegValue
@@ -898,10 +752,6 @@ static STF_RESULT sSetMode(
 
     /* Config registers */
     Ret = Sensor_ConfigRegister(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         u8ModeIdx
         );
@@ -912,20 +762,12 @@ static STF_RESULT sSetMode(
 
     /* Config sensor AEC/AGC ctrl */
     Sensor_AecAgcCtrl(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         pstSensorCam->bUseSensorAecAgc
         );
 
     /* Config flipping */
     Ret = Sensor_FlipImage(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         u8Flipping & SENSOR_FLIP_HORIZONTAL,
         u8Flipping & SENSOR_FLIP_VERTICAL
@@ -977,10 +819,6 @@ sSetMode_failed:
 }
 
 static STF_RESULT Sensor_EnableCtrl(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     int nI2c,
     STF_BOOL8 bEnable
     )
@@ -989,10 +827,6 @@ static STF_RESULT Sensor_EnableCtrl(
     /* Sensor specific operation */
     if (bEnable) {
         Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pCIConnection,
-            u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
             nI2c,
             0x0100,
             0x01
@@ -1000,10 +834,6 @@ static STF_RESULT Sensor_EnableCtrl(
         usleep(2000);
     } else {
         Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pCIConnection,
-            u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
             nI2c,
             0x0100,
             0x00
@@ -1038,18 +868,6 @@ static STF_RESULT sEnable(
         return Ret;
     }
 
-#if defined(V4L2_DRIVER)
-#else
-    Sensor_EnableCtrl(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->fdI2c,
-        STF_ENABLE
-        );
-    //usleep(SENSOR_MAX_FRAME_TIME);
-#endif //#if defined(V4L2_DRIVER)
     pstSensorCam->bEnabled = STF_TRUE;
     V_LOG_INFO("Sensor enabled!\n");
 
@@ -1072,17 +890,6 @@ static STF_RESULT sDisable(
         //LOG_INFO("Disabling SC2235 DVP camera\n");
         pstSensorCam->bEnabled = STF_FALSE;
 
-#if defined(V4L2_DRIVER)
-#else
-        Sensor_EnableCtrl(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pstSensorCam->pstSensorPhy->psConnection,
-            pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pstSensorCam->fdI2c,
-            STF_DISABLE
-            );
-#endif //#if defined(V4L2_DRIVER)
         // delay of a frame period to ensure sensor has stopped
         // flFrameRate in Hz, change to MHz to have micro seconds
         usleep(SENSOR_MAX_FRAME_TIME);
@@ -1129,7 +936,6 @@ static STF_RESULT sGetInfo(
 
     pstSensorCam = container_of(pstHandle, ST_SC2235_CAM, stFuncs);
 
-    //V_LOG_INFO(">>>>>>>>>>>>\n");
     TUNE_SLEEP(1);
     ASSERT_INITIALIZED(pstSensorCam->pstSensorPhy);
     STF_ASSERT(pstInfo);
@@ -1151,7 +957,6 @@ static STF_RESULT sGetInfo(
     // other information should be filled by sGetInfo()
     pstInfo->u32ModeCount = g_u8SensorModeNum;
     pstInfo->enExposureGainMethod = SC2235_EXPO_GAIN_METHOD;
-    //LOG_DEBUG("Provided BayerOriginal = %d\n", pstInfo->enBayerOriginal);
 
     return STF_SUCCESS;
 }
@@ -1173,10 +978,6 @@ static STF_RESULT sGetRegister(
     STF_ASSERT(pu16RegVal);
 
     Sensor_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         u16RegAddr,
         &u8RegValue
@@ -1201,10 +1002,6 @@ static STF_RESULT sSetRegister(
     ASSERT_INITIALIZED(pstSensorCam->pstSensorPhy);
 
     Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         u16RegAddr,
         u16RegVal
@@ -1267,17 +1064,12 @@ static STF_U32 Sensor_ComputeGains(
         dGain = SENSOR_MAX_GAIN;
     }
 
-#if 1
     u32GainInteger = floor(dGain);
     dGainDecimal = dGain - u32GainInteger;
     //u32ValDecimal = round(gain_decimal * 16);
     u32ValDecimal = floor(dGainDecimal * 16);
     u32ValInteger = u32GainInteger * 16;
     u32ValGain = u32ValInteger+u32ValDecimal;
-    //printf("u32ValGain=%x\n",u32ValGain);
-#else
-    u32ValGain = floor(dGain * 16)
-#endif
 
     return u32ValGain;
 }
@@ -1297,19 +1089,11 @@ static STF_VOID Sensor_WriteGain(
     }
 
     Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         SENSOR_GAIN_REG_ADDR_H,
         (u32ValGain >> 8) & 0xFF
         );
     Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         SENSOR_GAIN_REG_ADDR_L,
         u32ValGain & 0xFF
@@ -1324,8 +1108,6 @@ static STF_RESULT sGetGainRange(
     STF_U8 *pu8Contexts
     )
 {
-
-    //V_LOG_INFO(">>>>>>>>>>>>\n");
     TUNE_SLEEP(1);
     STF_ASSERT(pdMin);
     STF_ASSERT(pdMax);
@@ -1351,27 +1133,18 @@ static STF_RESULT sGetCurrentGain(
 
     pstSensorCam = container_of(pstHandle, ST_SC2235_CAM, stFuncs);
 
-    //V_LOG_DEBUG(">>>>>>>>>>>>\n");
     TUNE_SLEEP(1);
     ASSERT_INITIALIZED(pstSensorCam->pstSensorPhy);
     STF_ASSERT(pdCurrentGain);
 
 #if defined(GET_CURRENT_FROM_SENSOR)
     Sensor_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         SENSOR_GAIN_REG_ADDR_H,
         &u8GainHigh
         );
     u8GainHigh &= 0x0f;
     Sensor_I2cRead(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         SENSOR_GAIN_REG_ADDR_L,
         &u8GainLow
@@ -1426,22 +1199,12 @@ static STF_U32 Sensor_ComputeExposure(
 {
     STF_U32 u32ExposureLines;
 
-#if 1
     u32ExposureLines = u32ExpoTime * 1000
         / g_stSensorModes[pstSensorCam->u8ModeId].u32LineTime;
-#else
-    u32ExposureLines = u32ExpoTime
-        / g_stSensorModes[pstSensorCam->u8ModeId].u32LineTime;
-#endif
     if (1 > u32ExposureLines) {
         u32ExposureLines = 1;
-#if 0
-    } else if (u32ExposureLines > (pstSensorCam->u32FrameLength - 4)) {
-        u32ExposureLines = pstSensorCam->u32FrameLength - 4;
-#else
     } else if (u32ExposureLines > (pstSensorCam->u32FrameLength)) {
         u32ExposureLines = pstSensorCam->u32FrameLength;
-#endif
     }
 
     return u32ExposureLines;
@@ -1458,19 +1221,11 @@ static void Sensor_WriteExposure(
     }
 
     Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         SENSOR_EXPOSURE_REG_ADDR_H,
         (u32ExposureLines >> 4) & 0xFF
         );
     Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         SENSOR_EXPOSURE_REG_ADDR_L,
         (u32ExposureLines << 4) & 0xFF
@@ -1489,7 +1244,6 @@ static STF_RESULT sGetExposureRange(
 
     pstSensorCam = container_of(pstHandle, ST_SC2235_CAM, stFuncs);
 
-    //V_LOG_INFO(">>>>>>>>>>>>\n");
     TUNE_SLEEP(1);
     ASSERT_INITIALIZED(pstSensorCam->pstSensorPhy);
     STF_ASSERT(pu32Min);
@@ -1517,39 +1271,25 @@ static STF_RESULT sGetExposure(
 
     pstSensorCam = container_of(pstHandle, ST_SC2235_CAM, stFuncs);
 
-    //V_LOG_DEBUG(">>>>>>>>>>>>\n");
     TUNE_SLEEP(1);
     ASSERT_INITIALIZED(pstSensorCam->pstSensorPhy);
     STF_ASSERT(pu32Exposure);
 
 #if defined(GET_CURRENT_FROM_SENSOR)
     Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         SENSOR_EXPOSURE_REG_ADDR_H,
         &u8ExpoHigh
         );
     Sensor_I2cRead(
-  #if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-  #endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         SENSOR_EXPOSURE_REG_ADDR_L,
         &u8ExpoLow
         );
     u8ExpoLow = (u8ExpoLow >> 4) & 0xFF;
     u16ExpoLines = (u8ExpoHigh << 4) + u8ExpoLow;
-  #if 1
     *pu32Exposure = u16ExpoLines
         * g_stSensorModes[pstSensorCam->u8ModeId].u32LineTime / 1000;
-  #else
-    *pu32Exposure = u16ExpoLines
-        * g_stSensorModes[pstSensorCam->u8ModeId].u32LineTime;
-  #endif
 #else
     *pu32Exposure = pstSensorCam->u32Exposure;
 #endif //GET_CURRENT_FROM_SENSOR
@@ -1587,10 +1327,6 @@ static STF_RESULT sSetExposure(
 }
 
 static STF_RESULT Sensor_FlipImage(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     int nI2c,
     STF_U8 u8HFlip,
     STF_U8 u8VFlip
@@ -1613,10 +1349,6 @@ static STF_RESULT Sensor_FlipImage(
     }
 
     Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pCIConnection,
-        u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         nI2c,
         0x3221,
         u8Value
@@ -1641,10 +1373,6 @@ static STF_RESULT sSetFlipMirror(
 
     if (u8Flag != pstSensorCam->u8Flipping) {
         Sensor_FlipImage(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-            pstSensorCam->pstSensorPhy->psConnection,
-            pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
             pstSensorCam->fdI2c,
             u8Flag & SENSOR_FLIP_HORIZONTAL,
             u8Flag & SENSOR_FLIP_VERTICAL
@@ -1664,7 +1392,6 @@ static STF_RESULT sGetFixedFPS(
 
     pstSensorCam = container_of(pstHandle, ST_SC2235_CAM, stFuncs);
 
-    //V_LOG_DEBUG(">>>>>>>>>>>>\n");
     TUNE_SLEEP(1);
     if (NULL != pu16FixedFps) {
         *pu16FixedFps =
@@ -1722,19 +1449,11 @@ static STF_RESULT sSetFPS(
     u32FrameLength = round(u32FixedFrameLength * fDownRatio);
     pstSensorCam->u32FrameLength = u32FrameLength;
     Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         SENSOR_FRAME_LENGTH_H,
         (u32FrameLength >> 8) & 0xFF
         );
     Sensor_I2cWrite(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pstSensorCam->pstSensorPhy->psConnection,
-        pstSensorCam->pstSensorPhy->u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
         pstSensorCam->fdI2c,
         SENSOR_FRAME_LENGTH_L,
         u32FrameLength & 0xFF
@@ -1775,10 +1494,6 @@ static STF_RESULT sSetExposureAndGain(
         return STF_SUCCESS;
     }
     u32ExposureLines = Sensor_ComputeExposure(pstSensorCam, u32Exposure);
-    //V_LOG_DEBUG("Exposure - time=%d us, lines = %d\n",
-    //    pstSensorCam->u32Exposure,
-    //    u32ExposureLines
-    //    );
 
     //02. Gain part
     //
@@ -1789,11 +1504,6 @@ static STF_RESULT sSetExposureAndGain(
     }
     pstSensorCam->dGain = dGain;
     u32Gain = Sensor_ComputeGains(dGain);
-    //V_LOG_DEBUG("dGain=%lf, register value=0x%02x, actual gain=%lf\n",
-    //    dGain,
-    //    u32Gain,
-    //    u32Gain / 16.0
-    //    );
 
     //03. Program register to sensor part
     //
@@ -1825,10 +1535,6 @@ static STF_RESULT sReset(
 }
 
 STF_RESULT SC2235DVP_Create(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-    CI_CONNECTION *pCIConnection,
-    STF_U8 u8IspIdx,
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     SENSOR_HANDLE **ppstHandle,
     STF_U8 u8Index
     )
@@ -1844,45 +1550,22 @@ STF_RESULT SC2235DVP_Create(
 
     V_LOG_INFO("<<<<<<<<<<<<\n");
 
-#ifdef UNUSED_CODE_AND_VARIABLE
-    STF_CHAR szDevName[64];
-    STF_CHAR szPath[128];
-    STF_INT fd = 0;
+#ifndef USE_LINUX_SYSTEM_STARTAND_I2C
+		LOG_ERROR("Create SC2235 DVP sensor must use linux standart I2C interface!! \n");
+		return STF_ERROR_DEVICE_UNAVAILABLE;
+#endif //USE_LINUX_SYSTEM_STARTAND_I2C
 
-    STF_MEMSET((void *)szDevName, 0, sizeof(szDevName));
-    STF_MEMSET((void *)szAdaptor, 0, sizeof(szAdaptor));
-    STF_MEMSET((void *)szPath, 0, sizeof(szPath));
-    sprintf(szDevName, "%s%d", DEV_PATH, u8Index);
-    fd = open(szDevName, O_RDWR);
-    if (0 > fd) {
-        LOG_ERROR("open %s error\n", szDevName);
-        return STF_ERROR_FATAL;
-    }
+#ifndef V4L2_DRIVER
+		LOG_ERROR("Create SC2235 DVP sensor must use linux standart v4l2 drviers!! \n");
+	return STF_ERROR_DEVICE_UNAVAILABLE;
+#endif //V4L2_DRIVER
 
-    ioctl(fd, GETI2CADDR, &u32I2cAddr);
-    ioctl(fd, GETI2CCHN, &nChn);
-    ioctl(fd, GETIMAGER, &u8Imager);
-    ioctl(fd, GETSENSORPATH, szPath);
-
-    close(fd);
-    printf("%s opened OK, i2c-addr=0x%x, chn = %d\n",
-        szDevName, u32I2cAddr, nChn);
-    sprintf(szAdaptor, "%s-%d", "i2c", nChn);
-    STF_MEMSET((void *)szExtraCfg, 0, sizeof(szDevName));
-    if (szPath[0] == 0) {
-        sprintf(szExtraCfg, "%s%s%d-config.txt",
-            EXTRA_CFG_PATH, "sensor" , u8Index);
-    } else {
-        strcpy(szExtraCfg, szPath);
-    }
-#else
     u32I2cAddr = SC2235_I2C_ADDR;
     nChn = SC2235_I2C_CHN;
     u8Imager = 1;
     V_LOG_INFO("i2c-addr=0x%x, chn = %d\n", u32I2cAddr, nChn);
     sprintf(szAdaptor, "%s-%d", "i2c", nChn);
     sprintf(szExtraCfg, "%s%s%d-config.txt", EXTRA_CFG_PATH, "sensor", u8Index);
-#endif //UNUSED_CODE_AND_VARIABLE
 
     V_LOG_INFO("**SC2235DVP SENSOR**\n");
     TUNE_SLEEP(1);
@@ -1943,7 +1626,6 @@ STF_RESULT SC2235DVP_Create(
         g_stSensorModes[pstSensorCam->u8ModeId].stMode.u16VerticalTotal;
     pstSensorCam->fdI2c = -1;
 
-#if defined(USE_LINUX_SYSTEM_STARTAND_I2C)
     /* Init i2c */
     V_LOG_INFO("u32I2cAddr = 0x%X\n", u32I2cAddr);
     Ret = FindI2cDev(
@@ -1967,14 +1649,8 @@ STF_RESULT SC2235DVP_Create(
         return STF_ERROR_DEVICE_NOT_FOUND;
     }
 
-#endif //USE_LINUX_SYSTEM_STARTAND_I2C
     /* Init ISP gasket phy */
-    pstSensorCam->pstSensorPhy = SensorPhyInit(
-#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        pCIConnection,
-        u8IspIdx
-#endif //#if defined(VIRTUAL_IO_MAPPING) && !defined(USE_LINUX_SYSTEM_STARTAND_I2C)
-        );
+    pstSensorCam->pstSensorPhy = SensorPhyInit();
     if (!pstSensorCam->pstSensorPhy) {
         LOG_ERROR("Failed to create sensor phy!\n");
         close(pstSensorCam->fdI2c);
