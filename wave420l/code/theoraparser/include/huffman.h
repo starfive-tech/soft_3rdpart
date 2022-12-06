@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause  */
 /********************************************************************
  *                                                                  *
  * THIS FILE IS PART OF THE OggTheora SOFTWARE CODEC SOURCE CODE.   *

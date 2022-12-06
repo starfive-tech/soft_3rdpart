@@ -1,3 +1,4 @@
+// SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause
 #include "product.h"
 #include "wave/common/common.h"
 #include "wave/common/common_vpuconfig.h"

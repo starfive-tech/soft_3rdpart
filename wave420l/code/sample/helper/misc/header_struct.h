@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause  */
 #ifndef __HEADER_STRUCT_H__
 #define __HEADER_STRUCT_H__
 

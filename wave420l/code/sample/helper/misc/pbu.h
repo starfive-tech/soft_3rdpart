@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause  */
 //-----------------------------------------------------------------------------
 //
 //       This confidential and proprietary software may be used only

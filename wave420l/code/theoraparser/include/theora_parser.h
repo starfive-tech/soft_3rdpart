@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause  */
 //--=========================================================================--
 //  This file is a part of BlackBird Video Codec Modeling project
 //-----------------------------------------------------------------------------

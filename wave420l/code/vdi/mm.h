@@ -1,3 +1,4 @@
+// SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause
 #ifndef __CNM_VIDEO_MEMORY_ALLOCATOR_H_
 #define __CNM_VIDEO_MEMORY_ALLOCATOR_H_
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause
 /*	$NetBSD: getopt.c,v 1.16 1999/12/02 13:15:56 kleink Exp $	*/
 
 /*

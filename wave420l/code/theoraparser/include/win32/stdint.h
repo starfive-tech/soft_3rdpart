@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause  */
 /* stdint.h - integer types
 
    Copyright 2003, 2006, 2007 Red Hat, Inc.

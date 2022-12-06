@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause  */
 /********************************************************************
 Copyright (C) 2002-2009 Xiph.org Foundation
 

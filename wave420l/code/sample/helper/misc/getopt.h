@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause  */
 #ifndef __GETOPT_H__
 #define __GETOPT_H__
 

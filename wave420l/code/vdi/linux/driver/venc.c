@@ -1,3 +1,4 @@
+// SPDX-License-Identifier:  GPL-2.0+ OR BSD-3-Clause
 //--=========================================================================--
 //  This file is linux device driver for VPU.
 //-----------------------------------------------------------------------------
@@ -1571,7 +1572,7 @@ static void __exit vpu_exit(void)
 
 MODULE_AUTHOR("A customer using C&M VPU, Inc.");
 MODULE_DESCRIPTION("VPU linux driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 
 module_init(vpu_init);
 module_exit(vpu_exit);
