@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause  */
 /*
  * Copyright (c) 2019, Chips&Media
  * All rights reserved.
