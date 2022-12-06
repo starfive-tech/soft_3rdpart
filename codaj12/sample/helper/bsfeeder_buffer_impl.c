@@ -1,3 +1,4 @@
+// SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

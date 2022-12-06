@@ -1,3 +1,4 @@
+// SPDX-License-Identifier:  GPL-2.0+ OR BSD-3-Clause
 //--=========================================================================--
 //  This file is linux device driver for JPU.
 //-----------------------------------------------------------------------------
@@ -11,7 +12,7 @@
 //
 //       The entire notice above must be reproduced on all authorized
 //       copies.
-//
+//       Copyright (C) 2022 StarFive Technology Co., Ltd.
 //--=========================================================================-
 
 #include <linux/kernel.h>
@@ -1143,7 +1144,7 @@ static void __exit jpu_exit(void)
 
 MODULE_AUTHOR("A customer using C&M JPU, Inc.");
 MODULE_DESCRIPTION("JPU linux driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 
 module_init(jpu_init);
 module_exit(jpu_exit);

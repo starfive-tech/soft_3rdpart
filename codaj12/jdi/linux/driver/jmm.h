@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier:  LGPL-2.1 OR BSD-3-Clause  */
 #ifndef __CNM_JPU_MM_H__
 #define __CNM_JPU_MM_H__
 
