@@ -244,7 +244,6 @@ OMX_API OMX_ERRORTYPE OMX_GetRolesOfComponent(
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     FunctionIn();
 
-#if 0 //todo
     for (int i = 0; i < SF_OMX_COMPONENT_NUM; i ++)
     {
         if (sf_omx_component_list[i] == NULL)
@@ -260,7 +259,6 @@ OMX_API OMX_ERRORTYPE OMX_GetRolesOfComponent(
             LOG(SF_LOG_INFO,"Get component %s, Role = %s\r\n", sf_omx_component_list[i]->componentName, sf_omx_component_list[i]->componentRule)
         }
     }
-#endif
 
     FunctionOut();
     return ret;
