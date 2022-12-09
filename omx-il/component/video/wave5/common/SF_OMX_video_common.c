@@ -292,7 +292,6 @@ OMX_ERRORTYPE InitComponentStructorCommon(SF_OMX_COMPONENT *pSfOMXComponent)
         pPortDefinition->format.video.nFrameHeight = DEFAULT_FRAME_HEIGHT;
         pPortDefinition->format.video.nStride = DEFAULT_FRAME_WIDTH;
         pPortDefinition->format.video.nSliceHeight = DEFAULT_FRAME_HEIGHT;
-        pPortDefinition->format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
         pPortDefinition->format.video.cMIMEType = malloc(OMX_MAX_STRINGNAME_SIZE);
         pPortDefinition->format.video.xFramerate = 30;
         if (pPortDefinition->format.video.cMIMEType == NULL)
@@ -306,7 +305,6 @@ OMX_ERRORTYPE InitComponentStructorCommon(SF_OMX_COMPONENT *pSfOMXComponent)
         memset(pPortDefinition->format.video.cMIMEType, 0, OMX_MAX_STRINGNAME_SIZE);
         pPortDefinition->format.video.pNativeRender = 0;
         pPortDefinition->format.video.bFlagErrorConcealment = OMX_FALSE;
-        pPortDefinition->format.video.eColorFormat = OMX_COLOR_FormatUnused;
         pPortDefinition->bEnabled = OMX_TRUE;
 
         pAVCComponent->nPortIndex = i;
@@ -322,9 +320,19 @@ OMX_ERRORTYPE InitComponentStructorCommon(SF_OMX_COMPONENT *pSfOMXComponent)
     pSfOMXComponent->portDefinition[0].nBufferSize = DEFAULT_VIDEO_INPUT_BUFFER_SIZE;
     pSfOMXComponent->portDefinition[0].nBufferCountActual = VPU_INPUT_BUF_NUMBER;
     pSfOMXComponent->portDefinition[0].nBufferCountMin = VPU_INPUT_BUF_NUMBER;
+    if (strstr(pSfOMXComponent->componentName, "avc") != NULL)
+    {
+        pSfOMXComponent->portDefinition[0].format.video.eCompressionFormat = OMX_VIDEO_CodingAVC;
+    }
+    else if (strstr(pSfOMXComponent->componentName, "hevc") != NULL)
+    {
+        pSfOMXComponent->portDefinition[0].format.video.eCompressionFormat = OMX_VIDEO_CodingHEVC;
+    }
+    pSfOMXComponent->portDefinition[0].format.video.eColorFormat = OMX_COLOR_FormatUnused;
 
     strcpy(pSfOMXComponent->portDefinition[1].format.video.cMIMEType, "raw/video");
-    pSfOMXComponent->portDefinition[1].format.video.eColorFormat = OMX_COLOR_FormatYUV420SemiPlanar;
+    pSfOMXComponent->portDefinition[1].format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
+    pSfOMXComponent->portDefinition[1].format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
     pSfOMXComponent->portDefinition[1].eDir = OMX_DirOutput;
     pSfOMXComponent->portDefinition[1].nBufferSize = DEFAULT_VIDEO_OUTPUT_BUFFER_SIZE;
     pSfOMXComponent->portDefinition[1].nBufferCountActual = VPU_OUTPUT_BUF_NUMBER;

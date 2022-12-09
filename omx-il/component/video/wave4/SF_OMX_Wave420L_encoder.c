@@ -181,12 +181,10 @@ OMX_ERRORTYPE WaveOmxInit(SF_OMX_COMPONENT *pSfOMXComponent)
         pPortDefinition->format.video.nFrameHeight = DEFAULT_FRAME_HEIGHT;
         pPortDefinition->format.video.nStride = DEFAULT_FRAME_WIDTH;
         pPortDefinition->format.video.nSliceHeight = DEFAULT_FRAME_HEIGHT;
-        pPortDefinition->format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
         pPortDefinition->format.video.xFramerate = DEFAULT_FRAMERATE;
 
         pPortDefinition->format.video.pNativeRender = 0;
         pPortDefinition->format.video.bFlagErrorConcealment = OMX_FALSE;
-        pPortDefinition->format.video.eColorFormat = OMX_COLOR_FormatUnused;
 
         pPortDefinition->bEnabled = OMX_TRUE;
         pPortDefinition->eDir = (i == 0 ? OMX_DirInput : OMX_DirOutput);
@@ -201,6 +199,9 @@ OMX_ERRORTYPE WaveOmxInit(SF_OMX_COMPONENT *pSfOMXComponent)
     pSfOMXComponent->portDefinition[OMX_OUTPUT_PORT_INDEX].format.video.cMIMEType = "video/H265";
 
     pSfOMXComponent->portDefinition[OMX_INPUT_PORT_INDEX].format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+    pSfOMXComponent->portDefinition[OMX_OUTPUT_PORT_INDEX].format.video.eColorFormat = OMX_COLOR_FormatUnused;
+    pSfOMXComponent->portDefinition[OMX_INPUT_PORT_INDEX].format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
+    pSfOMXComponent->portDefinition[OMX_OUTPUT_PORT_INDEX].format.video.eCompressionFormat = OMX_VIDEO_CodingHEVC;
 
     memset(pSfOMXComponent->pBufferArray, 0, sizeof(pSfOMXComponent->pBufferArray));
     pSfOMXComponent->memory_optimization = OMX_TRUE;
@@ -1723,25 +1724,47 @@ static OMX_ERRORTYPE SF_OMX_GetParameter(
         OMX_VIDEO_PARAM_PORTFORMATTYPE *portFormat = (OMX_VIDEO_PARAM_PORTFORMATTYPE *)ComponentParameterStructure;
         OMX_U32 index = portFormat->nIndex;
         LOG(SF_LOG_INFO, "Get video port format at index %d\r\n", index);
-        portFormat->eCompressionFormat = OMX_VIDEO_CodingUnused;
-        portFormat->xFramerate = 30;
-        switch (index)
+        if (portFormat->nPortIndex == OMX_OUTPUT_PORT_INDEX)
         {
-        case 0:
-            portFormat->eColorFormat = OMX_COLOR_FormatYUV420SemiPlanar;
-            break;
-        case 1:
-            portFormat->eColorFormat = OMX_COLOR_FormatYUV420Planar;
-            break;
-        case 2:
-            portFormat->eColorFormat = OMX_COLOR_FormatYVU420SemiPlanar;
-            break;
-        default:
             if (index > 0)
             {
                 ret = OMX_ErrorNoMore;
+                break;
             }
-            break;
+            portFormat->eCompressionFormat = pSfOMXComponent->portDefinition[OMX_OUTPUT_PORT_INDEX].format.video.eCompressionFormat;
+            portFormat->eColorFormat = pSfOMXComponent->portDefinition[OMX_OUTPUT_PORT_INDEX].format.video.eColorFormat;
+            portFormat->xFramerate = pSfOMXComponent->portDefinition[OMX_OUTPUT_PORT_INDEX].format.video.xFramerate;
+        }
+        else if (portFormat->nPortIndex == OMX_INPUT_PORT_INDEX)
+        {
+            switch (index)
+            {
+            case 0:
+                portFormat->eCompressionFormat = OMX_VIDEO_CodingUnused;
+                portFormat->eColorFormat = OMX_COLOR_FormatYUV420Planar;
+                portFormat->xFramerate = pSfOMXComponent->portDefinition[OMX_INPUT_PORT_INDEX].format.video.xFramerate;
+                break;
+            case 1:
+                portFormat->eCompressionFormat = OMX_VIDEO_CodingUnused;
+                portFormat->eColorFormat = OMX_COLOR_FormatYUV420SemiPlanar;
+                portFormat->xFramerate = pSfOMXComponent->portDefinition[OMX_INPUT_PORT_INDEX].format.video.xFramerate;
+                break;
+            case 2:
+                portFormat->eCompressionFormat = OMX_VIDEO_CodingUnused;
+                portFormat->eColorFormat = OMX_COLOR_FormatYVU420SemiPlanar;
+                portFormat->xFramerate = pSfOMXComponent->portDefinition[OMX_INPUT_PORT_INDEX].format.video.xFramerate;
+                break;
+            default:
+                if (index > 0)
+                {
+                    ret = OMX_ErrorNoMore;
+                }
+                break;
+            }
+        }
+        else
+        {
+            ret = OMX_ErrorBadPortIndex;
         }
         break;
     }
@@ -1967,37 +1990,59 @@ static OMX_ERRORTYPE SF_OMX_SetParameter(
         OMX_PARAM_PORTDEFINITIONTYPE *pPort = &pSfOMXComponent->portDefinition[nPortIndex];
         LOG(SF_LOG_INFO, "Set eColorFormat to %d\r\n", eColorFormat);
 
-        if (nPortIndex >= OMX_PORT_MAX)
-            return OMX_ErrorBadPortIndex;
-
-        pPort = &pSfOMXComponent->portDefinition[nPortIndex];
-
-        switch (eColorFormat)
+        if (nPortIndex == OMX_OUTPUT_PORT_INDEX)
         {
-        case OMX_COLOR_FormatYUV420Planar:
-            pImp->encConfig.cbcrInterleave = OMX_FALSE;
-            pImp->encConfig.nv21 = OMX_FALSE;
-            pImp->encConfig.srcFormat = FORMAT_420;
-            pImp->encConfig.packedFormat = NOT_PACKED;
-            break;
-        case OMX_COLOR_FormatYUV420SemiPlanar:
-            pImp->encConfig.cbcrInterleave = OMX_TRUE;
-            pImp->encConfig.nv21 = OMX_FALSE;
-            pImp->encConfig.srcFormat = FORMAT_420;
-            pImp->encConfig.packedFormat = NOT_PACKED;
-            break;
-        case OMX_COLOR_FormatYVU420SemiPlanar:
-            pImp->encConfig.cbcrInterleave = OMX_TRUE;
-            pImp->encConfig.nv21 = OMX_TRUE;
-            pImp->encConfig.srcFormat = FORMAT_420;
-            pImp->encConfig.packedFormat = NOT_PACKED;
-            break;
-        default:
-            ret = OMX_ErrorBadParameter;
-            break;
+            if (portFormat->eColorFormat != pPort->format.video.eColorFormat ||
+                    portFormat->eCompressionFormat != pPort->format.video.eCompressionFormat)
+            {
+                return OMX_ErrorBadParameter;
+            }
         }
-        if(!ret){
-            pPort->format.video.eColorFormat = eColorFormat;
+        else if (nPortIndex == OMX_INPUT_PORT_INDEX)
+        {
+            if (portFormat->eCompressionFormat != pPort->format.video.eCompressionFormat)
+            {
+                return OMX_ErrorBadParameter;
+            }
+            if (portFormat->xFramerate == 0)
+            {
+                return OMX_ErrorBadParameter;
+            }
+            switch (portFormat->eColorFormat)
+            {
+                case OMX_COLOR_FormatYUV420Planar: //I420
+                    pImp->encConfig.cbcrInterleave = OMX_FALSE;
+                    pImp->encConfig.nv21 = OMX_FALSE;
+                    pImp->encConfig.srcFormat = FORMAT_420;
+                    pImp->encConfig.packedFormat = NOT_PACKED;
+                    pPort->format.video.xFramerate = portFormat->xFramerate;
+                    break;
+                case OMX_COLOR_FormatYUV420SemiPlanar: //NV12
+                    pImp->encConfig.cbcrInterleave = OMX_TRUE;
+                    pImp->encConfig.nv21 = OMX_FALSE;
+                    pImp->encConfig.srcFormat = FORMAT_420;
+                    pImp->encConfig.packedFormat = NOT_PACKED;
+                    pPort->format.video.xFramerate = portFormat->xFramerate;
+                    break;
+                case OMX_COLOR_FormatYVU420SemiPlanar: //NV21
+                    pImp->encConfig.cbcrInterleave = OMX_TRUE;
+                    pImp->encConfig.nv21 = OMX_TRUE;
+                    pImp->encConfig.srcFormat = FORMAT_420;
+                    pImp->encConfig.packedFormat = NOT_PACKED;
+                    pPort->format.video.xFramerate = portFormat->xFramerate;
+                    break;
+                default:
+                    LOG(SF_LOG_ERR, "Error to set parameter: %d, only nv12 nv21 i420 supported\r\n", portFormat->eColorFormat);
+                    return OMX_ErrorBadParameter;
+                    break;
+            }
+            if(!ret){
+                pPort->format.video.eColorFormat = eColorFormat;
+            }
+        }
+        else
+        {
+            return OMX_ErrorBadPortIndex;
         }
         break;
     }

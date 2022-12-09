@@ -36,8 +36,8 @@ typedef struct Message
 typedef struct DecodeTestContext
 {
     OMX_HANDLETYPE hComponentDecoder;
-    char sOutputFilePath[64];
-    char sInputFilePath[64];
+    char sOutputFilePath[256];
+    char sInputFilePath[256];
     char sOutputFormat[64];
     OMX_U32 ScaleWidth;
     OMX_U32 ScaleHeight;

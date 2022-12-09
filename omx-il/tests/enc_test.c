@@ -39,8 +39,8 @@ typedef struct Message
 typedef struct EncodeTestContext
 {
     OMX_HANDLETYPE hComponentEncoder;
-    char sOutputFilePath[64];
-    char sInputFilePath[64];
+    char sOutputFilePath[256];
+    char sInputFilePath[256];
     FILE *pInputFile;
     char sInputFormat[64];
     char sOutputFormat[64];
