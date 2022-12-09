@@ -1,3 +1,10 @@
+Internal Release 2.0.3
+========================
+New feature:
+------------
+Tidy up sensor impletementation code for libSensorApi open source.
+
+
 Internal Release 2.0.2
 ========================
 Bug fix:
@@ -5,6 +12,7 @@ Bug fix:
 1) Fix segment fault on exit process because of the uninitialized devices.
 2) Removed misunderstood log that is normal in single isp pipeline.
 3) Reduce the time cost on stf_isp_ctrl setup to avoid unstable preview at first.
+
 
 Internal Release 2.0.1
 ========================
