@@ -7,7 +7,6 @@ DRI_SRC=./vdi/linux/driver/
 
 ENC_BIN=w4_enc_test
 STEAM=./stream
-YUV=./yuv
 CFG=./cfg
 FIRMWARE=../firmware/monet.bin
 
@@ -25,7 +24,6 @@ make -f  Wave420Enc.mak clean
 
 $CP $FIRMWARE $OUTPUT
 $CP $STEAM $OUTPUT
-$CP $YUV $OUTPUT
 $CP $CFG $OUTPUT
 $CP script/* $OUTPUT
 mkdir -p $OUTPUT/output
