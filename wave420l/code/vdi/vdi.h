@@ -157,6 +157,7 @@ extern "C" {
     int vdi_convert_endian(unsigned long core_idx, unsigned int endian);
 	void vdi_print_vpu_status(unsigned long coreIdx);
 	void vdi_flush_ddr(unsigned long core_idx,unsigned long start,unsigned long size,unsigned char flag);
+	void vdi_devfreq_set(unsigned long core_idx,int picHeight, int picWidth, int frameRateInfo);
 
 
 #if defined (__cplusplus)

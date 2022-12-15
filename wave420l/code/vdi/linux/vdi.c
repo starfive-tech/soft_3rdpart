@@ -96,6 +96,19 @@ void vdi_flush_ddr(unsigned long core_idx,unsigned long start,unsigned long size
     ioctl(vdi->vpu_fd, VDI_IOCTL_FLUSH_DCACHE, &cache_info);
 }
 
+void vdi_devfreq_set(unsigned long core_idx, int picHeight, int picWidth, int frameRateInfo)
+{
+    vdi_info_t *vdi;
+    vpudrv_devfreq_info_t devfreq_info;
+
+    vdi = &s_vdi_info[core_idx];
+    devfreq_info.picHeight = picHeight;
+    devfreq_info.picWidth = picWidth;
+    devfreq_info.frameRateInfo = frameRateInfo;
+
+    ioctl(vdi->vpu_fd, VDI_IOCTL_DEVFREQ_SET, &devfreq_info);
+}
+
 int vdi_probe(unsigned long core_idx)
 {
     int ret;

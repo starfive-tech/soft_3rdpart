@@ -2633,6 +2633,7 @@ RetCode VPU_EncOpen(EncHandle* pHandle, EncOpenParam * pop)
     }
     SetClockGate(pop->coreIdx, FALSE);
 
+    vdi_devfreq_set(pop->coreIdx, pop->picWidth, pop->picHeight, pop->frameRateInfo);
     LeaveLock(pCodecInst->coreIdx);
 
     return ret;
