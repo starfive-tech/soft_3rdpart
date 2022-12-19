@@ -110,6 +110,41 @@ struct clk_bulk_data vpu_clks[] = {
 		{ .id = "vce_clk" },
 		{ .id = "noc_bus" },
 };
+#define FRAMSIZE_1080P	(1920*1080)
+#define FRAMSIZE_720P	(1280*720)
+#define FRAMSIZE_480P	(720*480)
+
+struct vpu_devfreq_t {
+	struct clk *axi_clk;
+	struct clk *bpu_clk;
+	struct clk *vce_clk;
+};
+
+enum VPU_DEV_FREQ {
+	VPU_DEV_FREQ_80 = 80000000,
+	VPU_DEV_FREQ_100 = 100000000,
+	VPU_DEV_FREQ_150 = 150000000,
+	VPU_DEV_FREQ_200 = 200000000,
+	VPU_DEV_FREQ_237 = 237600000,
+	VPU_DEV_FREQ_300 = 300000000,
+	VPU_DEV_FREQ_MAX = VPU_DEV_FREQ_300,
+};
+
+enum VPU_DEV_FREQ_MODE {
+	MODE_480P_30F,
+	MODE_480P_60F,
+	MODE_720P_30F,
+	MODE_720P_60F,
+	MODE_1080P_30F,
+	MODE_MAX,
+};
+
+struct vpu_dev_freq_list {
+	int mode;
+	unsigned long axi_rate;
+	unsigned long bpu_rate;
+	unsigned long vce_rate;
+};
 
 typedef struct vpu_clk_t{
 #ifndef STARFIVE_VPU_SUPPORT_CLOCK_CONTROL
@@ -127,6 +162,7 @@ typedef struct vpu_clk_t{
 #else
 		struct clk_bulk_data *clks;
 		struct reset_control *resets;
+		struct vpu_devfreq_t vpu_devfreq;
 		int nr_clks;
 #endif
 		struct device *dev;
@@ -177,6 +213,7 @@ static vpu_clk_t *vpu_clk_get(struct platform_device *pdev);
 static void vpu_clk_put(vpu_clk_t *clk);
 static int vpu_pmu_enable(struct device *dev);
 static void vpu_pmu_disable(struct device *dev);
+static int vpu_devfreq_select(struct vpudrv_devfreq_info_t *info);
 
 /* end customer definition */
 static vpudrv_buffer_t s_instance_pool = {0};
@@ -828,6 +865,17 @@ static long vpu_ioctl(struct file *filp, u_int cmd, u_long arg)
             DPRINTK("[JPUDRV][-]VDI_IOCTL_FLUSH_DCACHE\n");
             break;
         }
+	case VDI_IOCTL_DEVFREQ_SET:
+	{
+		vpudrv_devfreq_info_t devfreq_info;
+
+		ret = copy_from_user(&devfreq_info, (vpudrv_devfreq_info_t *)arg, sizeof(vpudrv_devfreq_info_t));
+		if (ret != 0)
+			ret = -EFAULT;
+
+		vpu_devfreq_select(&devfreq_info);
+		break;
+	}
 	default:
 		{
 			printk(KERN_ERR "[VPUDRV] No such IOCTL, cmd is %d\n", cmd);
@@ -1806,6 +1854,113 @@ void vpu_clk_disable(struct vpu_clk_t *clk)
 
 #else /*STARFIVE_VPU_SUPPORT_CLOCK_CONTROL*/
 
+static const struct vpu_dev_freq_list wave420l_dev_freq_lists[MODE_MAX+1] = {
+	[MODE_480P_30F] = {
+		.mode = MODE_480P_30F,
+		.axi_rate = VPU_DEV_FREQ_80,
+		.bpu_rate = VPU_DEV_FREQ_80,
+		.vce_rate = VPU_DEV_FREQ_80,
+	},
+	[MODE_480P_60F] = {
+		.mode = MODE_480P_60F,
+		.axi_rate = VPU_DEV_FREQ_100,
+		.bpu_rate = VPU_DEV_FREQ_100,
+		.vce_rate = VPU_DEV_FREQ_100,
+	},
+	[MODE_720P_30F] = {
+		.mode = MODE_720P_30F,
+		.axi_rate = VPU_DEV_FREQ_150,
+		.bpu_rate = VPU_DEV_FREQ_150,
+		.vce_rate = VPU_DEV_FREQ_150,
+	},
+	[MODE_720P_60F] = {
+		.mode = MODE_720P_60F,
+		.axi_rate = VPU_DEV_FREQ_237,
+		.bpu_rate = VPU_DEV_FREQ_237,
+		.vce_rate = VPU_DEV_FREQ_237,
+	},
+	[MODE_1080P_30F] = {
+		.mode = MODE_1080P_30F,
+		.axi_rate = VPU_DEV_FREQ_300,
+		.bpu_rate = VPU_DEV_FREQ_300,
+		.vce_rate = VPU_DEV_FREQ_300,
+	},
+	[MODE_MAX] = {
+		.mode = MODE_MAX,
+		.axi_rate = VPU_DEV_FREQ_MAX,
+		.bpu_rate = VPU_DEV_FREQ_MAX,
+		.vce_rate = VPU_DEV_FREQ_MAX,
+	},
+};
+
+static int vpu_devfreq_init(vpu_clk_t *vpu_clk)
+{
+	struct vpu_devfreq_t *dev_freq = &vpu_clk->vpu_devfreq;
+
+	dev_freq->axi_clk = devm_clk_get_optional(vpu_clk->dev, "axi_clk");
+	if (IS_ERR(dev_freq->axi_clk))
+		return PTR_ERR(dev_freq->axi_clk);
+
+	dev_freq->bpu_clk = devm_clk_get_optional(vpu_clk->dev, "bpu_clk");
+	if (IS_ERR(dev_freq->bpu_clk))
+		return PTR_ERR(dev_freq->bpu_clk);
+
+	dev_freq->vce_clk = devm_clk_get_optional(vpu_clk->dev, "vce_clk");
+	if (IS_ERR(dev_freq->vce_clk))
+		return PTR_ERR(dev_freq->vce_clk);
+
+	return 0;
+}
+
+static int vpu_devfreq_set(vpu_clk_t *vpu_clk, const struct vpu_dev_freq_list *freq_list)
+{
+	struct vpu_devfreq_t *dev_freq = &vpu_clk->vpu_devfreq;
+	int ret;
+
+	dev_dbg(vpu_clk->dev, "axi_clk:%ld bpu_clk:%ld vce_clk:%ld\n",
+		freq_list->axi_rate, freq_list->bpu_rate, freq_list->vce_rate);
+	ret = clk_set_rate(dev_freq->axi_clk, freq_list->axi_rate);
+	if (ret)
+		dev_err(vpu_clk->dev, "set clk error, ret:%d \n", ret);
+
+	ret = clk_set_rate(dev_freq->bpu_clk, freq_list->bpu_rate);
+	if (ret)
+		dev_err(vpu_clk->dev, "set clk error, ret:%d \n", ret);
+
+	ret = clk_set_rate(dev_freq->vce_clk, freq_list->vce_rate);
+	if (ret)
+		dev_err(vpu_clk->dev, "set clk error, ret:%d \n", ret);
+
+	return ret;
+}
+
+static int vpu_devfreq_select(struct vpudrv_devfreq_info_t *info)
+{
+	unsigned long framsize = info->picWidth*info->picHeight;
+	int frameRateInfo = info->frameRateInfo;
+	int mode;
+
+	if (frameRateInfo <= 30) {
+		if (framsize <= FRAMSIZE_480P)
+			mode = MODE_480P_30F;
+		else if (framsize <= FRAMSIZE_720P)
+			mode = MODE_720P_30F;
+		else if (framsize <= FRAMSIZE_1080P)
+			mode = MODE_1080P_30F;
+		else
+			mode = MODE_MAX;
+	} else {
+		if (framsize <= FRAMSIZE_480P)
+			mode = MODE_480P_60F;
+		else if (framsize <= FRAMSIZE_720P)
+			mode = MODE_720P_60F;
+		else
+			mode = MODE_MAX;
+	}
+
+	return vpu_devfreq_set(s_vpu_clk, &wave420l_dev_freq_lists[mode]);
+}
+
 int vpu_hw_reset(void)
 {
 	DPRINTK("[VPUDRV] reset vpu hardware. \n");
@@ -1852,6 +2007,7 @@ static vpu_clk_t *vpu_clk_get(struct platform_device *pdev)
 	if (vpu_of_clk_get(pdev, vpu_clk))
 		goto err_of_clk_get;
 
+	vpu_devfreq_init(vpu_clk);
 	return vpu_clk;
 
 err_of_clk_get:
