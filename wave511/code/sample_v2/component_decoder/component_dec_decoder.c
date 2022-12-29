@@ -301,7 +301,12 @@ static DEC_INT_STATUS HandlingInterruptFlag(ComponentImpl* com)
         if (INTERRUPT_TIMEOUT_VALUE == interruptFlag) {
             Uint64   currentTimeout = osal_gettime();
             if (0 < interruptTimeout && (currentTimeout - ctx->startTimeout) > interruptTimeout) {
+#ifdef USE_FEEDING_METHOD_BUFFER
+                VLOG(TRACE, "\n INSNTANCE #%d INTERRUPT TIMEOUT.\n", handle->instIndex);
+                ctx->startTimeout = 0ULL;
+#else
                 VLOG(ERR, "\n INSNTANCE #%d INTERRUPT TIMEOUT.\n", handle->instIndex);
+#endif
                 status = DEC_INT_STATUS_TIMEOUT;
                 break;
             }
@@ -453,8 +458,16 @@ static BOOL Decode(ComponentImpl* com, PortContainerES* in, PortContainerDisplay
     intStatus=HandlingInterruptFlag(com);
     switch (intStatus) {
     case DEC_INT_STATUS_TIMEOUT:
+#ifdef USE_FEEDING_METHOD_BUFFER
+        if (doDecode)
+        {
+            DoReset(com);
+            return FALSE;
+        }
+#else
         DoReset(com);
         return FALSE;
+#endif
     case DEC_INT_STATUS_EMPTY:
     case DEC_INT_STATUS_NONE:
         return TRUE;
