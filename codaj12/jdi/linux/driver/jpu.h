@@ -50,6 +50,10 @@
 
 #define MEM2SYS(addr) ((addr) > 0x40000000 && (addr) < 0x240000000 ? ((addr)+0x400000000):(addr))
 
+#ifndef PTHREAD_MUTEX_ROBUST_NP
+#define PTHREAD_MUTEX_ROBUST_NP     1
+#endif
+
 typedef struct jpudrv_flush_cache_t {
     unsigned long start;
     unsigned long size;

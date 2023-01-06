@@ -75,7 +75,7 @@ ARFLAGS += cru
 ifeq ($(USE_PTHREAD), yes)
 LDLIBS  += -lpthread
 endif
-LDLIBS  += -lm
+LDLIBS  += -lm -lrt
 
 OBJDIR=obj
 ALLOBJS=*.o
