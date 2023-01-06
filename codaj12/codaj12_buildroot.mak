@@ -83,7 +83,7 @@ LDFLAGS  = $(PLATFORM_FLAGS)
 ifeq ($(USE_PTHREAD), yes)
 LDLIBS  += -lpthread
 endif
-LDLIBS  += -lm
+LDLIBS  += -lm -lrt
 
 BUILDLIST=DECTEST
 MAKEFILE=codaj12_buildroot.mak

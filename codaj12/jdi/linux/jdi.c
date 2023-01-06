@@ -52,6 +52,8 @@
 
 
 #define JPU_DEVICE_NAME "/dev/jpu"
+#define JPU_MUTEX_NAME  "/jpumutex"
+static int mutex_fd = -1;
 #define JDI_INSTANCE_POOL_SIZE          sizeof(jpu_instance_pool_t)
 #define JDI_INSTANCE_POOL_TOTAL_SIZE    (JDI_INSTANCE_POOL_SIZE + sizeof(MUTEX_HANDLE)*JDI_NUM_LOCK_HANDLES)
 typedef pthread_mutex_t    MUTEX_HANDLE;
@@ -173,7 +175,7 @@ int jdi_init()
          * pthread_mutexattr_setrobust_np(attr, PTHREAD_MUTEX_ROBUST_NP) makes
          * next onwer call pthread_mutex_lock() without deadlock.
          */
-        pthread_mutexattr_setrobust_np(&mutexattr, PTHREAD_MUTEX_ROBUST_NP);
+        pthread_mutexattr_setrobust(&mutexattr, PTHREAD_MUTEX_ROBUST);
 #endif
         pthread_mutex_init((MUTEX_HANDLE *)jdi->jpu_mutex, &mutexattr);
 
@@ -183,6 +185,7 @@ int jdi_init()
             pCodecInst[0] = 0;    // indicate inUse of CodecInst
         }
         jdi->pjip->instance_pool_inited = TRUE;
+        pthread_mutexattr_destroy(&mutexattr);
     }
     if (ioctl(jdi->jpu_fd, JDI_IOCTL_GET_REGISTER_INFO, &jdi->jdb_register) < 0)
     {
@@ -259,6 +262,14 @@ int jdi_release()
         close(jdi->jpu_fd);
     }
 
+    if (jdi->jpu_mutex)
+    {
+        munmap(jdi->jpu_mutex, sizeof(MUTEX_HANDLE) * JDI_NUM_LOCK_HANDLES);
+        close(mutex_fd);
+        jdi->jpu_mutex = NULL;
+        mutex_fd = -1;
+    }
+
     memset(jdi, 0x00, sizeof(jdi_info_t));
 
     return 0;
@@ -276,7 +287,8 @@ jpu_instance_pool_t *jdi_get_instance_pool()
 
     memset(&jdb, 0x00, sizeof(jpudrv_buffer_t));
     if (!jdi->pjip) {
-        jdb.size = JDI_INSTANCE_POOL_TOTAL_SIZE;
+        void *mutex_addr = NULL;
+        jdb.size = JDI_INSTANCE_POOL_SIZE;
         if (ioctl(jdi->jpu_fd, JDI_IOCTL_GET_INSTANCE_POOL, &jdb) < 0) {
             JLOG(ERR, "[JDI] fail to allocate get instance pool physical space=%d\n", (int)jdb.size);
             return NULL;
@@ -289,8 +301,36 @@ jpu_instance_pool_t *jdi_get_instance_pool()
         }
         jdi->pjip      = (jpu_instance_pool_t *)jdb.virt_addr;//lint !e511
         //change the pointer of jpu_mutex to at end pointer of jpu_instance_pool_t to assign at allocated position.
-        jdi->jpu_mutex = (void *)((unsigned long)jdi->pjip + JDI_INSTANCE_POOL_SIZE); //lint !e511
+        if (jdi->pjip && (jdi->pjip->instance_pool_inited == FALSE)) {
+            mutex_fd = shm_open(JPU_MUTEX_NAME, O_CREAT | O_RDWR | O_TRUNC, S_IRWXU | S_IRWXG);
+            if (mutex_fd < 0)
+            {
+                JLOG(ERR, "[JDI] shm_open failed with %s\n", JPU_MUTEX_NAME);
+                return NULL;
+            }
 
+            if (ftruncate(mutex_fd, sizeof(MUTEX_HANDLE) * JDI_NUM_LOCK_HANDLES) == -1)
+            {
+                shm_unlink(JPU_MUTEX_NAME);
+                JLOG(ERR, "[JDI] ftruncate failed with %s\n" JPU_MUTEX_NAME);
+                return NULL;
+            }
+        } else {
+            mutex_fd = shm_open(JPU_MUTEX_NAME, O_RDWR, S_IRWXU | S_IRWXG);
+            if (mutex_fd < 0)
+            {
+                JLOG(ERR, "[JDI] shm_open exist mutex failed with %s\n",JPU_MUTEX_NAME);
+                return NULL;
+            }
+        }
+        mutex_addr = mmap(NULL, sizeof(MUTEX_HANDLE) * JDI_NUM_LOCK_HANDLES, PROT_READ | PROT_WRITE, MAP_SHARED, mutex_fd, 0);
+        if (mutex_addr == MAP_FAILED)
+        {
+            JLOG(ERR, "[JDI] mmap failed with %s\n", JPU_MUTEX_NAME);
+            return NULL;
+        }
+ 
+        jdi->jpu_mutex = mutex_addr;
         JLOG(INFO, "[JDI] instance pool physaddr=%p, virtaddr=%p, base=%p, size=%d\n", jdb.phys_addr, jdb.virt_addr, jdb.base, jdb.size);
     }
 
@@ -361,6 +401,7 @@ int jdi_hw_reset()
 
 }
 
+#if defined(ANDROID) || !defined(PTHREAD_MUTEX_ROBUST_NP)
 static void restore_mutex_in_dead(MUTEX_HANDLE *mutex)
 {
     int mutex_value;
@@ -380,6 +421,7 @@ static void restore_mutex_in_dead(MUTEX_HANDLE *mutex)
         pthread_mutex_init(mutex, &mutexattr);
     }
 }
+#endif
 
 int jdi_lock()
 {
@@ -395,9 +437,17 @@ int jdi_lock()
     restore_mutex_in_dead((MUTEX_HANDLE *)jdi->jpu_mutex);
     pthread_mutex_lock((MUTEX_HANDLE*)jdi->jpu_mutex);
 #else
-    if (pthread_mutex_lock(&jdi->jpu_mutex) != 0) {
-        JLOG(ERR, "%s:%d failed to pthread_mutex_locK\n", __FUNCTION__, __LINE__);
-        return -1;
+    int ret = -1;
+    ret = pthread_mutex_lock((MUTEX_HANDLE *)jdi->jpu_mutex);
+    if (ret != 0) {
+        if (ret == EOWNERDEAD)
+            ret = pthread_mutex_consistent((MUTEX_HANDLE *)jdi->jpu_mutex);
+
+        if (ret != 0)
+        {
+            JLOG(ERR, "%s:%d failed to pthread_mutex_locK\n", __FUNCTION__, __LINE__);
+            return -1;
+        }
     }
 #endif
 
