@@ -400,9 +400,10 @@ static int vpu_free_instances(struct file *filp)
 	vpudrv_instance_pool_t *vip;
 	void *vip_base;
 	int instance_pool_size_per_core;
+#if !defined(PTHREAD_MUTEX_ROBUST_NP)
 	void *vdi_mutexes_base;
 	const int PTHREAD_MUTEX_T_DESTROY_VALUE = 0xdead10cc;
-
+#endif
 	DPRINTK("[VPUDRV] vpu_free_instances\n");
 
 	instance_pool_size_per_core = (s_instance_pool.size/MAX_NUM_VPU_CORE); /* s_instance_pool.size  assigned to the size of all core once call VDI_IOCTL_GET_INSTANCE_POOL by user. */
@@ -415,6 +416,7 @@ static int vpu_free_instances(struct file *filp)
 			vip = (vpudrv_instance_pool_t *)vip_base;
 			if (vip) {
 				memset(&vip->codecInstPool[vil->inst_idx], 0x00, 4);	/* only first 4 byte is key point(inUse of CodecInst in vpuapi) to free the corresponding instance. */
+#if !defined(PTHREAD_MUTEX_ROBUST_NP)
 #define PTHREAD_MUTEX_T_HANDLE_SIZE 4
 				vdi_mutexes_base = (vip_base + (instance_pool_size_per_core - PTHREAD_MUTEX_T_HANDLE_SIZE*4));
 				DPRINTK("[VPUDRV] vpu_free_instances : force to destroy vdi_mutexes_base=%p in userspace \n", vdi_mutexes_base);
@@ -425,6 +427,7 @@ static int vpu_free_instances(struct file *filp)
 						vdi_mutexes_base += PTHREAD_MUTEX_T_HANDLE_SIZE;
 					}
 				}
+#endif
 			}
 			s_vpu_open_ref_count--;
 			list_del(&vil->list);

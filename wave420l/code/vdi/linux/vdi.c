@@ -31,7 +31,8 @@
 #include "wave/coda7q/coda7q_regdefine.h"
 
 #define VPU_DEVICE_NAME "/dev/venc"
-
+#define VPU_MUTEX_NAME  "/vencmutex"
+static int mutex_fd = -1;
 typedef pthread_mutex_t	MUTEX_HANDLE;
 
 
@@ -162,7 +163,7 @@ int vdi_init(unsigned long core_idx)
         * pthread_mutexattr_setrobust_np(attr, PTHREAD_MUTEX_ROBUST_NP) makes
         * next onwer call pthread_mutex_lock() without deadlock.
         */
-        pthread_mutexattr_setrobust_np(&mutexattr, PTHREAD_MUTEX_ROBUST_NP);
+        pthread_mutexattr_setrobust(&mutexattr, PTHREAD_MUTEX_ROBUST);
 #endif
         pthread_mutex_init((MUTEX_HANDLE *)vdi->vpu_mutex, &mutexattr);
         pthread_mutex_init((MUTEX_HANDLE *)vdi->vpu_disp_mutex, &mutexattr);
@@ -174,6 +175,7 @@ int vdi_init(unsigned long core_idx)
         }
 
         vdi->pvip->instance_pool_inited = TRUE;
+        pthread_mutexattr_destroy(&mutexattr);
     }
 
 #ifdef USE_VMALLOC_FOR_INSTANCE_POOL_MEMORY
@@ -344,6 +346,16 @@ int vdi_release(unsigned long core_idx)
 
     }
 
+    if(vdi->vpu_mutex)
+    {
+        munmap(vdi->vpu_mutex, sizeof(MUTEX_HANDLE) * VDI_NUM_LOCK_HANDLES);
+        close(mutex_fd);
+
+        vdi->vpu_mutex = NULL;
+        vdi->vpu_disp_mutex = NULL;
+        mutex_fd = -1;
+    }
+
     memset(vdi, 0x00, sizeof(vdi_info_t));
 
     return 0;
@@ -444,7 +456,8 @@ vpu_instance_pool_t *vdi_get_instance_pool(unsigned long core_idx)
     osal_memset(&vdb, 0x00, sizeof(vpudrv_buffer_t));
     if (!vdi->pvip)
     {
-        vdb.size = sizeof(vpu_instance_pool_t) + sizeof(MUTEX_HANDLE)*VDI_NUM_LOCK_HANDLES;
+        void *mutex_addr = NULL;
+        vdb.size = sizeof(vpu_instance_pool_t);
 #ifdef SUPPORT_MULTI_CORE_IN_ONE_DRIVER
         vdb.size  *= MAX_NUM_VPU_CORE;
 #endif
@@ -466,13 +479,42 @@ vpu_instance_pool_t *vdi_get_instance_pool(unsigned long core_idx)
         }
 
 #ifdef SUPPORT_MULTI_CORE_IN_ONE_DRIVER
-        vdi->pvip = (vpu_instance_pool_t *)(vdb.virt_addr + (core_idx*(sizeof(vpu_instance_pool_t) + sizeof(MUTEX_HANDLE)*VDI_NUM_LOCK_HANDLES)));
+        vdi->pvip = (vpu_instance_pool_t *)(vdb.virt_addr + (core_idx*(sizeof(vpu_instance_pool_t))));
 #else
         vdi->pvip = (vpu_instance_pool_t *)(vdb.virt_addr);
 #endif
-        vdi->vpu_mutex =      (void *)((unsigned long)vdi->pvip + sizeof(vpu_instance_pool_t));	//change the pointer of vpu_mutex to at end pointer of vpu_instance_pool_t to assign at allocated position.
-        vdi->vpu_disp_mutex = (void *)((unsigned long)vdi->pvip + sizeof(vpu_instance_pool_t) + sizeof(MUTEX_HANDLE));		
+        if (vdi->pvip && (vdi->pvip->instance_pool_inited == FALSE)) {
+            mutex_fd = shm_open(VPU_MUTEX_NAME, O_CREAT | O_RDWR | O_TRUNC, S_IRWXU | S_IRWXG);
+            if (mutex_fd < 0)
+            {
+                VLOG(ERR, "[VDI] shm_open failed with %s\n", VPU_MUTEX_NAME);
+                return NULL;
+            }
 
+            if (ftruncate(mutex_fd, sizeof(MUTEX_HANDLE) * VDI_NUM_LOCK_HANDLES) == -1)
+            {
+                shm_unlink(VPU_MUTEX_NAME);
+                VLOG(ERR, "[VDI] ftruncate failed with %s\n" VPU_MUTEX_NAME);
+                return NULL;
+            }
+        } else {
+            mutex_fd = shm_open(VPU_MUTEX_NAME, O_RDWR, S_IRWXU | S_IRWXG);
+            if (mutex_fd < 0)
+            {
+                VLOG(ERR, "[VDI] shm_open exist mutex failed with %s\n", VPU_MUTEX_NAME);
+                return NULL;
+            }
+        }
+
+        mutex_addr = mmap(NULL, sizeof(MUTEX_HANDLE) * VDI_NUM_LOCK_HANDLES, PROT_READ | PROT_WRITE, MAP_SHARED, mutex_fd, 0);
+        if (mutex_addr == MAP_FAILED)
+        {
+            VLOG(ERR, "[VDI] mmap failed with %s\n", VPU_MUTEX_NAME);
+            return NULL;
+        }
+
+        vdi->vpu_mutex      = mutex_addr;
+        vdi->vpu_disp_mutex = mutex_addr + sizeof(MUTEX_HANDLE);
         VLOG(INFO, "[VDI] instance pool physaddr=0x%lx, virtaddr=0x%lx, base=0x%lx, size=%ld\n", (int)vdb.phys_addr, (int)vdb.virt_addr, (int)vdb.base, (int)vdb.size);
     }
 
@@ -562,6 +604,7 @@ int vdi_hw_reset(unsigned long core_idx) // DEVICE_ADDR_SW_RESET
 
 }
 
+#if defined(ANDROID) || !defined(PTHREAD_MUTEX_ROBUST_NP)
 static void restore_mutex_in_dead(MUTEX_HANDLE *mutex)
 {
 	int mutex_value;
@@ -581,14 +624,11 @@ static void restore_mutex_in_dead(MUTEX_HANDLE *mutex)
         pthread_mutex_init(mutex, &mutexattr);
 	}
 }
+#endif
 
 int vdi_lock(unsigned long core_idx)
 {
     vdi_info_t *vdi;
-#if defined(ANDROID) || !defined(PTHREAD_MUTEX_ROBUST_NP)
-#else
-    const int MUTEX_TIMEOUT = 0x7fffffff;
-#endif
 
     if (core_idx >= MAX_NUM_VPU_CORE)
         return -1;
@@ -601,9 +641,18 @@ int vdi_lock(unsigned long core_idx)
 	restore_mutex_in_dead((MUTEX_HANDLE *)vdi->vpu_mutex);
 	pthread_mutex_lock((MUTEX_HANDLE*)vdi->vpu_mutex);
 #else
-    if (pthread_mutex_lock((MUTEX_HANDLE *)vdi->vpu_mutex) != 0) {
-        VLOG(ERR, "%s:%d failed to pthread_mutex_locK\n", __FUNCTION__, __LINE__);
-        return -1;
+    int ret = -1;
+    ret = pthread_mutex_lock((MUTEX_HANDLE *)vdi->vpu_mutex);
+    if (ret != 0)
+    {
+        if (ret == EOWNERDEAD)
+            ret = pthread_mutex_consistent((MUTEX_HANDLE *)vdi->vpu_mutex);
+
+        if (ret != 0)
+        {
+            VLOG(ERR, "%s:%d failed to pthread_mutex_locK\n", __FUNCTION__, __LINE__);
+            return -1;
+        }
     }
 #endif
 
@@ -653,10 +702,6 @@ void vdi_unlock(unsigned long core_idx)
 int vdi_disp_lock(unsigned long core_idx)
 {
     vdi_info_t *vdi;
-#if defined(ANDROID) || !defined(PTHREAD_MUTEX_ROBUST_NP)
-#else
-    const int MUTEX_TIMEOUT = 5000;  // ms
-#endif
 
     if (core_idx >= MAX_NUM_VPU_CORE)
         return -1;
@@ -669,9 +714,19 @@ int vdi_disp_lock(unsigned long core_idx)
 	restore_mutex_in_dead((MUTEX_HANDLE *)vdi->vpu_disp_mutex);
 	pthread_mutex_lock((MUTEX_HANDLE*)vdi->vpu_disp_mutex);
 #else
-    if (pthread_mutex_lock((MUTEX_HANDLE *)vdi->vpu_disp_mutex) != 0) {
-        VLOG(ERR, "%s:%d failed to pthread_mutex_lock\n", __FUNCTION__, __LINE__);
-        return -1;
+    int ret = -1;
+    ret = pthread_mutex_lock((MUTEX_HANDLE *)vdi->vpu_disp_mutex);
+    if (ret != 0)
+    {
+        if (ret == EOWNERDEAD)
+            ret = pthread_mutex_consistent((MUTEX_HANDLE *)vdi->vpu_disp_mutex);
+
+        if (ret != 0)
+        {
+            VLOG(ERR, "%s:%d failed to pthread_mutex_lock\n", __FUNCTION__, __LINE__);
+            return -1;
+        }
+
     }
 
 #endif /* ANDROID */
