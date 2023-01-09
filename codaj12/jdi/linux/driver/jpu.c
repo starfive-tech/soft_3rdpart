@@ -1044,11 +1044,13 @@ static int __maybe_unused jpu_runtime_resume(struct device *dev)
 #ifdef CONFIG_PM_SLEEP
 static int __maybe_unused  jpu_suspend(struct device *dev)
 {
+	pm_runtime_force_suspend(dev);
 	return 0;
 }
 
 static int __maybe_unused jpu_resume(struct device *dev)
 {
+	pm_runtime_force_resume(dev);
 	return 0;
 }
 #endif /* CONFIG_PM_SLEEP */
@@ -1056,7 +1058,7 @@ static int __maybe_unused jpu_resume(struct device *dev)
 static const struct dev_pm_ops cm_jpu_pm_ops = {
 	SET_RUNTIME_PM_OPS(jpu_runtime_suspend,
 			   jpu_runtime_resume, NULL)
-	//SET_SYSTEM_SLEEP_PM_OPS(jpu_suspend, jpu_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(jpu_suspend, jpu_resume)
 };
 
 #ifdef JPU_SUPPORT_PLATFORM_DRIVER_REGISTER
@@ -1419,22 +1421,12 @@ static int jpu_clk_enable(jpu_clk_t *clk)
 	if (ret)
 		dev_err(clk->dev, "enable clk error.\n");
 
-	ret = reset_control_deassert(clk->resets);
-	if (ret)
-		dev_err(clk->dev, "deassert jpu error.\n");
-
 	DPRINTK("[VPUDRV] jpu_clk_enable\n");
 	return ret;
 }
 
 static void jpu_clk_disable(jpu_clk_t *clk)
 {
-	int ret;
-
-	ret = reset_control_assert(clk->resets);
-	if (ret)
-		dev_err(clk->dev, "assert jpu error.\n");
-
 	clk_bulk_disable_unprepare(clk->nr_clks, clk->clks);
 }
 #endif /* STARFIVE_JPU_SUPPORT_CLOCK_CONTROL */
