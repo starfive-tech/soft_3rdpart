@@ -1775,6 +1775,7 @@ static int __maybe_unused vpu_suspend(struct device *dev)
     int product_code;
 
     DPRINTK("[VPUDRV] vpu_suspend\n");
+    pm_runtime_get_sync(dev);
 
     if (s_vpu_open_ref_count > 0) {
         for (core = 0; core < MAX_NUM_VPU_CORE; core++) {
@@ -1819,15 +1820,11 @@ static int __maybe_unused vpu_suspend(struct device *dev)
         }
     }
 
-    pm_runtime_set_suspended(dev);
-    return 0;
-
 DONE_SUSPEND:
+    pm_runtime_put_sync(dev);
+    pm_runtime_force_suspend(dev);
 
-    pm_runtime_set_suspended(dev);
-
-    return -EAGAIN;
-
+    return 0;
 }
 
 static int __maybe_unused vpu_resume(struct device *dev)
@@ -1847,17 +1844,14 @@ static int __maybe_unused vpu_resume(struct device *dev)
 
     DPRINTK("[VPUDRV] vpu_resume\n");
 
-    if (s_vpu_open_ref_count == 0)
-	pm_runtime_get_sync(dev);
-    else
-	pm_runtime_set_active(dev);
+    pm_runtime_force_resume(dev);
+    pm_runtime_get_sync(dev);
 
     for (core = 0; core < MAX_NUM_VPU_CORE; core++) {
 
         if (s_bit_firmware_info[core].size == 0) {
             continue;
         }
-
         product_code = ReadVpuRegister(VPU_PRODUCT_CODE_REGISTER);
         if (PRODUCT_CODE_W_SERIES(product_code)) {
             code_base = s_common_memory.phys_addr;
@@ -1879,7 +1873,6 @@ static int __maybe_unused vpu_resume(struct device *dev)
                 if (time_after(jiffies, timeout))
                     goto DONE_WAKEUP;
             }
-
             WriteVpuRegister(W5_VPU_RESET_REQ, 0);
 
             /* remap page size */
@@ -1912,7 +1905,7 @@ static int __maybe_unused vpu_resume(struct device *dev)
 
             WriteVpuRegister(W5_VPU_VINT_ENABLE,  regVal);
 
-            Wave5BitIssueCommand(core, W5_CMD_INIT_VPU);
+            Wave5BitIssueCommand(core, W5_CMD_WAKEUP_VPU);
             WriteVpuRegister(W5_VPU_REMAP_CORE_START, 1);
 
             while (ReadVpuRegister(W5_VPU_BUSY_STATUS)) {
@@ -1926,7 +1919,6 @@ static int __maybe_unused vpu_resume(struct device *dev)
             }
         }
         else if (PRODUCT_CODE_NOT_W_SERIES(product_code)) {
-
             WriteVpuRegister(BIT_CODE_RUN, 0);
 
             /*---- LOAD BOOT CODE*/
@@ -1953,15 +1945,8 @@ static int __maybe_unused vpu_resume(struct device *dev)
         }
     }
 
-    if (s_vpu_open_ref_count == 0) {
-	pm_runtime_put_sync(dev);
-	pm_runtime_set_suspended(dev);
-    }
-
 DONE_WAKEUP:
-
-    //if (s_vpu_open_ref_count > 0)
-    //    vpu_clk_enable(s_vpu_clk);
+    pm_runtime_put_sync(dev);
 
     return 0;
 }
@@ -1986,7 +1971,7 @@ MODULE_DEVICE_TABLE(of, cm_vpu_match);
 static const struct dev_pm_ops cm_vpu_pm_ops = {
 	SET_RUNTIME_PM_OPS(vpu_runtime_suspend,
 			   vpu_runtime_resume, NULL)
-	//SET_SYSTEM_SLEEP_PM_OPS(vpu_suspend, vpu_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(vpu_suspend, vpu_resume)
 };
 
 static struct platform_driver vpu_driver = {
