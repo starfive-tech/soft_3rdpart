@@ -53,7 +53,7 @@
 
 /* definitions to be changed as customer  configuration */
 /* if you want to have clock gating scheme frame by frame */
-#define VPU_SUPPORT_CLOCK_CONTROL
+//#define VPU_SUPPORT_CLOCK_CONTROL
 
 /* if clktree is work,try this...*/
 #define STARFIVE_VPU_SUPPORT_CLOCK_CONTROL
@@ -1296,6 +1296,7 @@ static int __maybe_unused vpu_suspend(struct device *dev)
     int product_code;
 
     DPRINTK("[VPUDRV] vpu_suspend\n");
+    pm_runtime_get_sync(dev);
 
     if (s_vpu_open_ref_count > 0) {
         for (core = 0; core < MAX_NUM_VPU_CORE; core++) {
@@ -1346,15 +1347,11 @@ static int __maybe_unused vpu_suspend(struct device *dev)
         }
     }
 
-    pm_runtime_set_suspended(dev);
-    return 0;
-
 DONE_SUSPEND:
+    pm_runtime_put_sync(dev);
+    pm_runtime_force_suspend(dev);
 
-    pm_runtime_set_suspended(dev);
-
-    return -EAGAIN;
-
+    return 0;
 }
 
 static int __maybe_unused vpu_resume(struct device *dev)
@@ -1374,12 +1371,8 @@ static int __maybe_unused vpu_resume(struct device *dev)
 
     DPRINTK("[VPUDRV] vpu_resume\n");
 
-    if (s_vpu_open_ref_count == 0) {
-	pm_runtime_get_sync(dev);
-    } else {
-        pm_runtime_set_active(dev);
-	//pm_runtime_enable(dev);
-    }
+    pm_runtime_force_resume(dev);
+    pm_runtime_get_sync(dev);
 
     for (core = 0; core < MAX_NUM_VPU_CORE; core++) {
 
@@ -1504,13 +1497,8 @@ static int __maybe_unused vpu_resume(struct device *dev)
 
     }
 
-    if (s_vpu_open_ref_count == 0) {
-	pm_runtime_put_sync(dev);
-	pm_runtime_set_suspended(dev);
-    }
-
 DONE_WAKEUP:
-
+    pm_runtime_put_sync(dev);
     return 0;
 }
 #endif /* CONFIG_PM_SLEEP */
@@ -1527,7 +1515,7 @@ MODULE_DEVICE_TABLE(of, vpu_of_id_table);
 static const struct dev_pm_ops cm_vpu_pm_ops = {
 	SET_RUNTIME_PM_OPS(vpu_runtime_suspend,
 			   vpu_runtime_resume, NULL)
-	//SET_SYSTEM_SLEEP_PM_OPS(vpu_suspend, vpu_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(vpu_suspend, vpu_resume)
 };
 
 static struct platform_driver vpu_driver = {
