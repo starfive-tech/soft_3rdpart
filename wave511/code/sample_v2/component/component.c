@@ -180,9 +180,11 @@ Int32 ComponentWait(Component component)
         return (com->state != COMPONENT_STATE_TERMINATED) ? 2 : 0;
     }
 
-    if ((ret=osal_thread_timedjoin(com->thread, (void**)&retval, 100)) == 0) {
+    if ((ret=osal_thread_timedjoin(com->thread, (void**)&retval, 5000)) == 0) {
         com->thread = NULL;
         WaitReturningPortData(com);
+    } else {
+        VLOG(ERR, "%s:%d wait Component %s timeout\n", __FUNCTION__, __LINE__, com->name);
     }
 
     return ret;
