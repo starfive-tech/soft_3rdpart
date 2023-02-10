@@ -2391,6 +2391,16 @@ EXIT:
     return ret;
 }
 
+static OMX_ERRORTYPE SF_OMX_UseEGLImage(
+        OMX_IN OMX_HANDLETYPE hComponent,
+        OMX_INOUT OMX_BUFFERHEADERTYPE** ppBufferHdr,
+        OMX_IN OMX_U32 nPortIndex,
+        OMX_IN OMX_PTR pAppPrivate,
+        OMX_IN void* eglImage)
+{
+    return OMX_ErrorNotImplemented;
+}
+
 static OMX_U32 nInstance = 0;
 
 static OMX_ERRORTYPE SF_OMX_ComponentConstructor(SF_OMX_COMPONENT *pSfOMXComponent)
@@ -2427,6 +2437,7 @@ static OMX_ERRORTYPE SF_OMX_ComponentConstructor(SF_OMX_COMPONENT *pSfOMXCompone
     pSfOMXComponent->pOMXComponent->SendCommand = &SF_OMX_SendCommand;
     pSfOMXComponent->pOMXComponent->GetState = &SF_OMX_GetState;
     pSfOMXComponent->pOMXComponent->GetComponentVersion = &SF_OMX_GetComponentVersion;
+    pSfOMXComponent->pOMXComponent->UseEGLImage = &SF_OMX_UseEGLImage;
     // pSfOMXComponent->pOMXComponent->GetExtensionIndex = &SF_OMX_GetExtensionIndex;
     // pSfOMXComponent->pOMXComponent->ComponentRoleEnum = &SF_OMX_ComponentRoleEnum;
     // pSfOMXComponent->pOMXComponent->ComponentDeInit = &SF_OMX_ComponentDeInit;
