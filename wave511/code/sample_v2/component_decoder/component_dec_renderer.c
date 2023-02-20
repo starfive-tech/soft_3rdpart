@@ -615,7 +615,7 @@ static BOOL ExecuteRenderer(ComponentImpl* com, PortContainer* in, PortContainer
         {
             output->nFlags = 0x1;
             output->nFilledLen = 0;
-            VLOG(ERR, "Flush output port\r\n");
+            VLOG(INFO, "Flush output port\r\n");
             ComponentNotifyListeners(com, COMPONENT_EVENT_DEC_FILL_BUFFER_DONE, (void *)output);
         }
 #endif

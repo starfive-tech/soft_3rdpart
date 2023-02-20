@@ -2148,16 +2148,22 @@ static OMX_ERRORTYPE SF_OMX_ComponentClear(SF_OMX_COMPONENT *pSfOMXComponent)
     ComponentImpl *pSFComponentRender = (ComponentImpl *)pSfVideoImplement->hSFComponentRender;
 
     FunctionIn();
-    if (pSFComponentDecoder == NULL || pSFComponentFeeder == NULL || pSFComponentRender == NULL)
+
+    if (pSFComponentFeeder)
     {
-        goto EXIT;
+        pSFComponentFeeder->terminate = OMX_TRUE;
+        pSfVideoImplement->functions->ComponentWait(pSfVideoImplement->hSFComponentFeeder);
     }
-    pSFComponentDecoder->terminate = OMX_TRUE;
-    pSFComponentFeeder->terminate = OMX_TRUE;
-    pSFComponentRender->terminate = OMX_TRUE;
-    pSfVideoImplement->functions->ComponentWait(pSfVideoImplement->hSFComponentFeeder);
-    pSfVideoImplement->functions->ComponentWait(pSfVideoImplement->hSFComponentExecoder);
-    pSfVideoImplement->functions->ComponentWait(pSfVideoImplement->hSFComponentRender);
+    if (pSFComponentDecoder)
+    {
+        pSFComponentDecoder->terminate = OMX_TRUE;
+        pSfVideoImplement->functions->ComponentWait(pSfVideoImplement->hSFComponentExecoder);
+    }
+    if (pSFComponentRender)
+    {
+        pSFComponentRender->terminate = OMX_TRUE;
+        pSfVideoImplement->functions->ComponentWait(pSfVideoImplement->hSFComponentRender);
+    }
 
     pSfVideoImplement->bCmdRunning = 0;
     /* enqueue DEC_StopThread mean cmd thread cycle end */
@@ -2175,7 +2181,7 @@ static OMX_ERRORTYPE SF_OMX_ComponentClear(SF_OMX_COMPONENT *pSfOMXComponent)
     free(pSfVideoImplement->pusBitCode);
     pSfVideoImplement->functions->ClearDecListenerContext(pSfVideoImplement->lsnCtx);
     ComponentClearCommon(pSfOMXComponent);
-EXIT:
+
     nInstance--;
     FunctionOut();
 
