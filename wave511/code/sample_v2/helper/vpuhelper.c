@@ -1394,7 +1394,7 @@ Int32 GetEncOpenParam(EncOpenParam *pEncOP, TestEncConfig *pEncConfig, ENC_CFG *
     ENC_CFG encCfgInst;
     ENC_CFG *pCfg;
     Int32   productId;
-    char yuvDir[256] = "yuv/";
+    char yuvDir[128] = "yuv/";
 
     productId   = VPU_GetProductId(pEncOP->coreIdx);
 

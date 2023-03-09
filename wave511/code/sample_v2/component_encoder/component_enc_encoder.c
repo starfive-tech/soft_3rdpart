@@ -1013,7 +1013,7 @@ static BOOL PrepareEncoder(ComponentImpl* com, BOOL* done)
 
     /* Open Data File*/
     if (ctx->encOpenParam.EncStdParam.waveParam.scalingListEnable) {
-        if (testEncConfig->scaling_list_fileName) {
+        if (testEncConfig) {
             ChangePathStyle(testEncConfig->scaling_list_fileName);
             if ((testEncConfig->scaling_list_file = osal_fopen(testEncConfig->scaling_list_fileName, "r")) == NULL) {
                 VLOG(ERR, "fail to open scaling list file, %s\n", testEncConfig->scaling_list_fileName);
@@ -1023,7 +1023,7 @@ static BOOL PrepareEncoder(ComponentImpl* com, BOOL* done)
     }
 
     if (ctx->encOpenParam.EncStdParam.waveParam.customLambdaEnable) {
-        if (testEncConfig->custom_lambda_fileName) {
+        if (testEncConfig) {
             ChangePathStyle(testEncConfig->custom_lambda_fileName);
             if ((testEncConfig->custom_lambda_file = osal_fopen(testEncConfig->custom_lambda_fileName, "r")) == NULL) {
                 VLOG(ERR, "fail to open custom lambda file, %s\n", testEncConfig->custom_lambda_fileName);
@@ -1033,42 +1033,34 @@ static BOOL PrepareEncoder(ComponentImpl* com, BOOL* done)
     }
 
     if (testEncConfig->roi_enable) {
-        if (testEncConfig->roi_file_name) {
-            ChangePathStyle(testEncConfig->roi_file_name);
-            if ((testEncConfig->roi_file = osal_fopen(testEncConfig->roi_file_name, "r")) == NULL) {
-                VLOG(ERR, "fail to open ROI file, %s\n", testEncConfig->roi_file_name);
-                return FALSE;
-            }
+        ChangePathStyle(testEncConfig->roi_file_name);
+        if ((testEncConfig->roi_file = osal_fopen(testEncConfig->roi_file_name, "r")) == NULL) {
+            VLOG(ERR, "fail to open ROI file, %s\n", testEncConfig->roi_file_name);
+            return FALSE;
         }
     }
 
     if (testEncConfig->lambda_map_enable) {
-        if (testEncConfig->lambda_map_fileName) {
-            ChangePathStyle(testEncConfig->lambda_map_fileName);
-            if ((testEncConfig->lambda_map_file = osal_fopen(testEncConfig->lambda_map_fileName, "r")) == NULL) {
-                VLOG(ERR, "fail to open lambda map file, %s\n", testEncConfig->lambda_map_fileName);
-                return FALSE;
-            }
+        ChangePathStyle(testEncConfig->lambda_map_fileName);
+        if ((testEncConfig->lambda_map_file = osal_fopen(testEncConfig->lambda_map_fileName, "r")) == NULL) {
+            VLOG(ERR, "fail to open lambda map file, %s\n", testEncConfig->lambda_map_fileName);
+            return FALSE;
         }
     }
 
     if (testEncConfig->mode_map_flag) {
-        if (testEncConfig->mode_map_fileName) {
-            ChangePathStyle(testEncConfig->mode_map_fileName);
-            if ((testEncConfig->mode_map_file = osal_fopen(testEncConfig->mode_map_fileName, "r")) == NULL) {
-                VLOG(ERR, "fail to open custom mode map file, %s\n", testEncConfig->mode_map_fileName);
-                return FALSE;
-            }
+        ChangePathStyle(testEncConfig->mode_map_fileName);
+        if ((testEncConfig->mode_map_file = osal_fopen(testEncConfig->mode_map_fileName, "r")) == NULL) {
+            VLOG(ERR, "fail to open custom mode map file, %s\n", testEncConfig->mode_map_fileName);
+            return FALSE;
         }
     }
 
     if (testEncConfig->wp_param_flag & 0x1) {
-        if (testEncConfig->wp_param_fileName) {
-            ChangePathStyle(testEncConfig->wp_param_fileName);
-            if ((testEncConfig->wp_param_file = osal_fopen(testEncConfig->wp_param_fileName, "r")) == NULL) {
-                VLOG(ERR, "fail to open Weight Param file, %s\n", testEncConfig->wp_param_fileName);
-                return FALSE;
-            }
+        ChangePathStyle(testEncConfig->wp_param_fileName);
+        if ((testEncConfig->wp_param_file = osal_fopen(testEncConfig->wp_param_fileName, "r")) == NULL) {
+            VLOG(ERR, "fail to open Weight Param file, %s\n", testEncConfig->wp_param_fileName);
+            return FALSE;
         }
     }
 
