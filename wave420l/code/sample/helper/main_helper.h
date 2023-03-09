@@ -55,6 +55,7 @@ struct OptionExt
 };
 
 #define MAX_FILE_PATH               256
+#define MAX_SRC_FILE_PATH           128
 #define MAX_PIC_SKIP_NUM            5
 #ifdef SUPPORT_SRC_BUF_CONTROL
 #define ENC_SRC_BUF_NUM             2000
@@ -231,7 +232,7 @@ typedef struct {
 } HEVC_ENC_CFG;
 
 typedef struct {
-    char SrcFileName[MAX_FILE_PATH];
+    char SrcFileName[MAX_SRC_FILE_PATH];
     char BitStreamFileName[MAX_FILE_PATH];
     BOOL srcCbCrInterleave;
     int NumFrame;

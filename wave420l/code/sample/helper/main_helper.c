@@ -1229,7 +1229,7 @@ Int32 writeVuiRbsp(int coreIdx, TestEncConfig *encConfig, EncOpenParam *encOP, v
         }
         encOP->vuiRbspDataAddr = vbVuiRbsp->phys_addr;
 
-        if (encConfig->vui_rbsp_file_name) {
+        if (encConfig) {
             Uint8   *pVuiRbspBuf;
             Int32   rbspSizeInByte = (encOP->vuiRbspDataSize+7)>>3;
             ChangePathStyle(encConfig->vui_rbsp_file_name);
@@ -1263,7 +1263,7 @@ Int32 writeHrdRbsp(int coreIdx, TestEncConfig *encConfig, EncOpenParam *encOP, v
 
         encOP->hrdRbspDataAddr = vbHrdRbsp->phys_addr;
 
-        if (encConfig->hrd_rbsp_file_name) {
+        if (encConfig) {
             Uint8   *pHrdRbspBuf;
             Int32   rbspSizeInByte = (encOP->hrdRbspDataSize+7)>>3;
             ChangePathStyle(encConfig->hrd_rbsp_file_name);
@@ -1505,7 +1505,7 @@ int setRoiMap(int coreIdx, TestEncConfig *encConfig, EncOpenParam encOP, Physica
         // sample code to convert ROI coordinate to ROI map.
         osal_memset(&encConfig->region[0], 0, sizeof(VpuRect)*MAX_ROI_NUMBER);
         osal_memset(&encConfig->roiLevel[0], 0, sizeof(int)*MAX_ROI_NUMBER);
-        if (encConfig->roi_file_name) {
+        if (encConfig) {
             char lineStr[256] = {0, };
             int  val;
             fgets(lineStr, 256, encConfig->roi_file);
@@ -1580,7 +1580,7 @@ int checkParamRestriction(Uint32 productId, TestEncConfig *encConfig)
 int openRoiMapFile(TestEncConfig *encConfig) 
 {
     if (encConfig->roi_enable) {
-        if (encConfig->roi_file_name) {
+        if (encConfig) {
             ChangePathStyle(encConfig->roi_file_name);
             if ((encConfig->roi_file = osal_fopen(encConfig->roi_file_name, "r")) == NULL) {
                 VLOG(ERR, "fail to open ROI file, %s\n", encConfig->roi_file_name);
@@ -1617,7 +1617,7 @@ int setCtuQpMap(int coreIdx, TestEncConfig *encConfig, EncOpenParam encOP, Physi
         // sample code to convert CTU coordinate to CTU MODE map.
         osal_memset(&encConfig->region[0], 0, sizeof(VpuRect)*MAX_ROI_NUMBER);
         osal_memset(&encConfig->ctuQp[0], 0, sizeof(int)*MAX_ROI_NUMBER);
-        if (encConfig->ctuqp_file_name) {
+        if (encConfig) {
             char lineStr[256] = {0, };
             int  val;
             fgets(lineStr, 256, encConfig->ctuqp_file);

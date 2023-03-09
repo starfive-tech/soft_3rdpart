@@ -1657,7 +1657,7 @@ Int32 GetEncOpenParam(EncOpenParam *pEncOP, TestEncConfig *pEncConfig, ENC_CFG *
     int bitFormat;
     ENC_CFG encCfgInst;
     ENC_CFG *pCfg;
-    char yuvDir[256] = "yuv/";
+    char yuvDir[128] = "yuv/";
 
     // Source YUV Image File to load
     if (pEncCfg) {
