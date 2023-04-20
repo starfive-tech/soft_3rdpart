@@ -15,7 +15,7 @@
   * FROM THE CONTENT OF SUCH FIRMWARE AND/OR THE USE MADE BY CUSTOMERS OF THE
   * CODING INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
   *
-  * <h2><center>&copy; COPYRIGHT 2019 Shanghai StarFive</center></h2>
+  * Copyright (C)  2019 - 2022 StarFive Technology Co., Ltd.
   */
 #ifndef __ISP_MOD_LCCF_TEST_H__
 #define __ISP_MOD_LCCF_TEST_H__

@@ -1,11 +1,22 @@
-/***************************************************************
- * Name:      tuning_service.c
- * Purpose:   Sifive command process
- * Author:    Jazz (jazz.chang@infotm.com)
- * Created:   2019-06-01
- * Copyright: (C) 2019 Shanghai InfoTM Microelectronics Co., Ltd.
- * License:
- **************************************************************/
+/**
+  ******************************************************************************
+  * @file tuning_servise.c
+  * @author  StarFive Isp Team
+  * @version  V1.0
+  * @date  06/21/2022
+  * @brief StarFive ISP tuning server tuning command process
+  ******************************************************************************
+  * @copy
+  *
+  * THE PRESENT FIRMWARE WHICH IS FOR GUIDANCE ONLY AIMS AT PROVIDING CUSTOMERS
+  * WITH CODING INFORMATION REGARDING THEIR PRODUCTS IN ORDER FOR THEM TO SAVE
+  * TIME. AS A RESULT, STARFIVE SHALL NOT BE HELD LIABLE FOR ANY
+  * DIRECT, INDIRECT OR CONSEQUENTIAL DAMAGES WITH RESPECT TO ANY CLAIMS ARISING
+  * FROM THE CONTENT OF SUCH FIRMWARE AND/OR THE USE MADE BY CUSTOMERS OF THE
+  * CODING INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
+  *
+  * Copyright (C)  2019 - 2022 StarFive Technology Co., Ltd.
+  */
 	
 /* Standard includes. */
 #include <stdint.h>
