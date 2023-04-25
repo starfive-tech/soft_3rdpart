@@ -610,10 +610,9 @@ static CNMComponentParamRet GetParameterDecoder(ComponentImpl* from, ComponentIm
             fbNum->linearNum = 0;
         }
 #ifdef USE_FEEDING_METHOD_BUFFER
-        if(fbNum->linearNum >= 8)
-            fbNum->linearNum += 4;
-        else
-            fbNum->linearNum += 2;
+        fbNum->linearNum += 6;
+        if (fbNum->linearNum > MAX_GDI_IDX)
+            fbNum->linearNum = MAX_GDI_IDX;
 #endif
         break;
     case GET_PARAM_DEC_BITSTREAM_BUF_POS:
