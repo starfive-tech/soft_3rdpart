@@ -15,7 +15,7 @@
   * FROM THE CONTENT OF SUCH FIRMWARE AND/OR THE USE MADE BY CUSTOMERS OF THE
   * CODING INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
   *
-  * <h2><center>&copy; COPYRIGHT 2019 Shanghai StarFive</center></h2>
+  * Copyright (C)  2019 - 2022 StarFive Technology Co., Ltd.
   */
 #ifndef __STFDRV_ISP_CROP_H__
 #define __STFDRV_ISP_CROP_H__
