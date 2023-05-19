@@ -333,7 +333,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (decodeTestContext->sInputFilePath == NULL || decodeTestContext->sOutputFilePath == NULL)
+    if (decodeTestContext == NULL)
     {
         help();
         return -1;

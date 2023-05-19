@@ -340,8 +340,7 @@ int main(int argc, char **argv)
     }
 
     encodeTestContext->nFrameBufferSize = width * height * 3 / 2;
-    if (encodeTestContext->sInputFilePath == NULL ||
-        encodeTestContext->sOutputFilePath == NULL ||
+    if (encodeTestContext == NULL ||
         encodeTestContext->nFrameBufferSize == 0 ||
         encodeTestContext->pInputFile == NULL)
     {

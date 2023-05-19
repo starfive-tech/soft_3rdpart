@@ -79,6 +79,7 @@ struct OptionExt
 };
 
 #define MAX_FILE_PATH               256
+#define MAX_SRC_FILE_PATH           128
 #define MAX_PIC_SKIP_NUM            5
 
 
@@ -313,7 +314,7 @@ typedef struct {
 } W5ChangeParam;
 
 typedef struct {
-    char SrcFileName[MAX_FILE_PATH];
+    char SrcFileName[MAX_SRC_FILE_PATH];
     char BitStreamFileName[MAX_FILE_PATH];
     BOOL srcCbCrInterleave;
     int NumFrame;

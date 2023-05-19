@@ -509,7 +509,7 @@ int TestEncoder(TestEncConfig *param)
         }
         
         if ( (encConfig.seiDataEnc.prefixSeiNalEnable || encConfig.seiDataEnc.suffixSeiNalEnable) && encParam.srcEndFlag != 1) {
-            if (encConfig.prefix_sei_nal_file_name) {
+            {
                 Uint8   *pUserBuf;
                 pUserBuf = (Uint8*)osal_malloc(SEI_NAL_DATA_BUF_SIZE);
                 osal_memset(pUserBuf, 0, SEI_NAL_DATA_BUF_SIZE);
@@ -518,7 +518,7 @@ int TestEncoder(TestEncConfig *param)
                 osal_free(pUserBuf);
             }
             
-            if (encConfig.suffix_sei_nal_file_name) {
+            {
                 Uint8   *pUserBuf;
                 pUserBuf = (Uint8*)osal_malloc(SEI_NAL_DATA_BUF_SIZE);
                 osal_memset(pUserBuf, 0, SEI_NAL_DATA_BUF_SIZE);

@@ -2158,7 +2158,7 @@ void GenRegionToQpMap(
 int openRoiMapFile(TestEncConfig *encConfig)
 {
     if (encConfig->roi_enable) {
-        if (encConfig->roi_file_name) {
+        if (encConfig) {
             ChangePathStyle(encConfig->roi_file_name);
             if ((encConfig->roi_file = osal_fopen(encConfig->roi_file_name, "r")) == NULL) {
                 VLOG(ERR, "fail to open ROI file, %s\n", encConfig->roi_file_name);
