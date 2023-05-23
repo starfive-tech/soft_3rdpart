@@ -2169,7 +2169,6 @@ static OMX_ERRORTYPE SF_OMX_ComponentClear(SF_OMX_COMPONENT *pSfOMXComponent)
     /* enqueue DEC_StopThread mean cmd thread cycle end */
     cmd.Cmd = DEC_StopThread;
     SF_Queue_Enqueue(pSfVideoImplement->CmdQueue, &cmd);
-    pthread_cancel(pSfVideoImplement->pCmdThread->pthread);
 	pthread_join(pSfVideoImplement->pCmdThread->pthread, &ThreadRet);
     LOG(SF_LOG_INFO, "Cmd thread end %ld\r\n", (Uint64)ThreadRet);
     SF_Queue_Destroy(pSfVideoImplement->CmdQueue);
