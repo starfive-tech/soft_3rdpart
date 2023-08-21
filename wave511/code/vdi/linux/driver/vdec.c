@@ -474,8 +474,8 @@ static int vpu_freq_init(struct device *dev)
 
 static void starfive_flush_dcache(phys_addr_t start, size_t len)
 {
-#ifdef ARCH_HAS_SYNC_DMA_FOR_CPU
-	dma_sync_single_for_cpu(vpu_dev, start, len, DMA_FROM_DEVICE);
+#ifdef ARCH_HAS_SYNC_DMA_FOR_DEVICE
+	dma_sync_single_for_device(vpu_dev, start, len, DMA_FROM_DEVICE);
 #else
 	sifive_ccache_flush_range(start, len);
 #endif
