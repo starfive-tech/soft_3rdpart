@@ -1698,6 +1698,7 @@ RetCode VPU_DecClrDispFlag(DecHandle handle, int index)
     RetCode     ret         = RETCODE_SUCCESS;
     Int32       endIndex, SvacSvcFlag;
     VpuAttr*    pAttr       = NULL;
+    FrameBuffer* pBuffer    = NULL;
     BOOL        supportCommandQueue;
 
     ret = CheckDecInstanceValidity(handle);
@@ -1715,6 +1716,9 @@ RetCode VPU_DecClrDispFlag(DecHandle handle, int index)
     if ((index < 0) || (index > (endIndex - 1))) {
         return RETCODE_INVALID_PARAM;
     }
+
+    pBuffer = &pDecInfo->frameBufPool[pDecInfo->numFbsForDecoding + index];
+    vdi_flush_ddr(pCodecInst->coreIdx, pBuffer->bufY, pBuffer->size, 1);
 
     supportCommandQueue = (pAttr->supportCommandQueue == TRUE);
     if (supportCommandQueue == TRUE) {
