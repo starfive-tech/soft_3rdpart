@@ -1022,7 +1022,7 @@ int vdi_read_memory(unsigned long core_idx, PhysicalAddress addr, unsigned char 
         return -1;
 
     offset = addr - (unsigned long)vdb.phys_addr;
-    vdi_flush_ddr(core_idx,(unsigned long )(vdb.phys_addr+offset),len,1);
+    //vdi_flush_ddr(core_idx,(unsigned long )(vdb.phys_addr+offset),len,1);
     osal_memcpy(data, (const void *)((unsigned long)vdb.virt_addr+offset), len);
     swap_endian(core_idx, data, len,  endian);
 
@@ -1064,7 +1064,7 @@ int vdi_read_memory2(unsigned long core_idx, PhysicalAddress addr, unsigned char
         return -1;
 
     offset = addr - (unsigned long)vdb.phys_addr;
-    vdi_flush_ddr(core_idx,(unsigned long )(vdb.phys_addr+offset),len,1);
+    //vdi_flush_ddr(core_idx,(unsigned long )(vdb.phys_addr+offset),len,1);
     *ppdata = (unsigned char *)(vdb.virt_addr + offset);
     swap_endian(core_idx, *ppdata, len,  endian);
 
