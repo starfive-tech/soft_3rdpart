@@ -257,21 +257,28 @@ static void OnEventArrived(Component com, unsigned long event, void *data, void 
     {
         /*The width and height vpu return will align to 16, eg: 1080 will be 1088. so check scale value at first.*/
         TestDecConfig *testConfig = (TestDecConfig *)pSfVideoImplement->testConfig;
-        OMX_U32 nWidth = testConfig->scaleDownWidth;
-        OMX_U32 nHeight = testConfig->scaleDownHeight;
-        if (nWidth <= 0 || nHeight <= 0)
-        {
-            /*If scale value not set, then get value from vpu*/
-            FrameBuffer *frameBuffer = (FrameBuffer *)data;
-            nWidth = frameBuffer->width;
-            nHeight = frameBuffer->height;
-        }
+        DecHandle decHandle = NULL;
+        DecInitialInfo* pInfo;
 
-        LOG(SF_LOG_INFO, "Get Output width = %d, height = %d\r\n", nWidth, nHeight);
-        pSfOMXComponent->portDefinition[1].format.video.nFrameWidth = nWidth;
-        pSfOMXComponent->portDefinition[1].format.video.nFrameHeight = nHeight;
-        pSfOMXComponent->portDefinition[1].format.video.nStride = nWidth;
-        pSfOMXComponent->portDefinition[1].format.video.nSliceHeight = nHeight;
+        pSfVideoImplement->functions->ComponentGetParameter(NULL, com, GET_PARAM_DEC_HANDLE, &decHandle);
+        pInfo = &decHandle->CodecInfo->decInfo.initialInfo;
+
+        if(testConfig->scaleDownWidth > 0 || testConfig->scaleDownHeight > 0)
+        {
+            pSfOMXComponent->portDefinition[1].format.video.nFrameWidth = testConfig->scaleDownWidth;
+            pSfOMXComponent->portDefinition[1].format.video.nFrameHeight = testConfig->scaleDownHeight;
+            pSfOMXComponent->portDefinition[1].format.video.nStride = testConfig->scaleDownWidth;
+            pSfOMXComponent->portDefinition[1].format.video.nSliceHeight = testConfig->scaleDownHeight;
+        }
+        else
+        {
+            pSfOMXComponent->portDefinition[1].format.video.nFrameWidth = pInfo->picCropRect.right;
+            pSfOMXComponent->portDefinition[1].format.video.nFrameHeight = pInfo->picCropRect.bottom;
+            pSfOMXComponent->portDefinition[1].format.video.nStride = pInfo->picWidth;
+            pSfOMXComponent->portDefinition[1].format.video.nSliceHeight = pInfo->picHeight;
+        }
+        LOG(SF_LOG_INFO, "Get Output width = %d, height = %d\r\n", pSfOMXComponent->portDefinition[1].format.video.nFrameWidth,
+                pSfOMXComponent->portDefinition[1].format.video.nFrameHeight);
 
         ComponentImpl *pRendererComponent = (ComponentImpl *)pSfVideoImplement->hSFComponentRender;
         pSfOMXComponent->portDefinition[1].nBufferCountActual = pSfVideoImplement->functions->GetRenderTotalBufferNumber(pRendererComponent);
@@ -283,14 +290,12 @@ static void OnEventArrived(Component com, unsigned long event, void *data, void 
         case OMX_COLOR_FormatYUV420Planar:
         case OMX_COLOR_FormatYUV420SemiPlanar:
         case OMX_COLOR_FormatYVU420SemiPlanar:
-            if (nWidth && nHeight) {
-                pSfOMXComponent->portDefinition[1].nBufferSize = (nWidth * nHeight * 3) / 2;
-            }
+                pSfOMXComponent->portDefinition[1].nBufferSize = (pSfOMXComponent->portDefinition[1].format.video.nStride
+                    * pSfOMXComponent->portDefinition[1].format.video.nSliceHeight * 3) / 2;
             break;
         default:
-            if (nWidth && nHeight) {
-                pSfOMXComponent->portDefinition[1].nBufferSize = nWidth * nHeight * 2;
-            }
+                pSfOMXComponent->portDefinition[1].nBufferSize = pSfOMXComponent->portDefinition[1].format.video.nStride
+                    * pSfOMXComponent->portDefinition[1].format.video.nSliceHeight * 2;
             break;
         }
         pSfOMXComponent->callbacks->EventHandler(pSfOMXComponent->pOMXComponent, pSfOMXComponent->pAppData, OMX_EventPortSettingsChanged,
@@ -666,8 +671,8 @@ static OMX_ERRORTYPE SF_OMX_AllocateBuffer(
                 if (pSfOMXComponent->memory_optimization)
                 {
                     OMX_U32 nLinearBufferSize, nFrameWidth, nFrameHeight;
-                    nFrameWidth = OMX_ALIGN32(pSfOMXComponent->portDefinition[1].format.video.nFrameWidth);
-                    nFrameHeight = pSfOMXComponent->portDefinition[1].format.video.nFrameHeight;
+                    nFrameWidth = pSfOMXComponent->portDefinition[1].format.video.nStride;
+                    nFrameHeight = pSfOMXComponent->portDefinition[1].format.video.nSliceHeight;
                     nLinearBufferSize = nFrameWidth * nFrameHeight * 3 / 2;
                     nLinearBufferSize = (nLinearBufferSize > nSizeBytes)? nLinearBufferSize : nSizeBytes;
                     temp_bufferHeader->pBuffer = pSfVideoImplement->functions->AllocateFrameBuffer2(pComponentRender, nLinearBufferSize);
@@ -1030,12 +1035,12 @@ static OMX_ERRORTYPE SF_OMX_SetParameter(
             pOutputPort->format.video.nFrameWidth = width;
             pOutputPort->format.video.nFrameHeight = height;
             pOutputPort->format.video.nStride = width;
-            pOutputPort->format.video.nSliceHeight = height;
-            pTestDecConfig->scaleDownWidth = VPU_CEIL(width, 2);
-            pTestDecConfig->scaleDownHeight = VPU_CEIL(height, 2);
+            pOutputPort->format.video.nSliceHeight = OMX_ALIGN16(height);
+            pTestDecConfig->scaleDownWidth = 0;
+            pTestDecConfig->scaleDownHeight = 0;
             if (width && height)
-                    pOutputPort->nBufferSize = (width * height * 3) / 2;
-            LOG(SF_LOG_INFO, "Set scale = %d, %d\r\n", pTestDecConfig->scaleDownWidth , pTestDecConfig->scaleDownHeight);
+                    pOutputPort->nBufferSize = (pOutputPort->format.video.nStride * pOutputPort->format.video.nSliceHeight * 3) / 2;
+            LOG(SF_LOG_INFO, "Set resol = %d x %d, stride %d x %d\r\n", width, height, pOutputPort->format.video.nStride, pOutputPort->format.video.nSliceHeight);
         }
         else if (portIndex == 1)
         {
@@ -1082,10 +1087,14 @@ static OMX_ERRORTYPE SF_OMX_SetParameter(
             pOutputPort->format.video.nFrameWidth = width;
             pOutputPort->format.video.nFrameHeight = height;
             pOutputPort->format.video.nStride = width;
-            pOutputPort->format.video.nSliceHeight = height;
-            pTestDecConfig->scaleDownWidth = VPU_CEIL(width, 2);
-            pTestDecConfig->scaleDownHeight = VPU_CEIL(height, 2);
-            LOG(SF_LOG_INFO, "Set scale = %d, %d\r\n", pTestDecConfig->scaleDownWidth , pTestDecConfig->scaleDownHeight);
+            pOutputPort->format.video.nSliceHeight = OMX_ALIGN16(height);
+            LOG(SF_LOG_INFO, "Set resol = %d x %d, stride %d x %d\r\n", width, height, pOutputPort->format.video.nStride, pOutputPort->format.video.nSliceHeight);
+            if(width != pInputPort->format.video.nFrameWidth || height != pInputPort->format.video.nFrameHeight)
+            {
+                pTestDecConfig->scaleDownWidth = OMX_ALIGN2(width);
+                pTestDecConfig->scaleDownHeight = OMX_ALIGN2(height);
+                LOG(SF_LOG_INFO, "Set scale = %d, %d\r\n", pTestDecConfig->scaleDownWidth , pTestDecConfig->scaleDownHeight);
+            }
              /*
                 if cbcrInterleave is FALSE and nv21 is FALSE, the default dec format is I420
                 if cbcrInterleave is TRUE and nv21 is FALSE, then the dec format is NV12
@@ -1098,19 +1107,19 @@ static OMX_ERRORTYPE SF_OMX_SetParameter(
                 pTestDecConfig->cbcrInterleave = FALSE;
                 pTestDecConfig->nv21 = FALSE;
                 if (width && height)
-                    pOutputPort->nBufferSize = (width * height * 3) / 2;
+                    pOutputPort->nBufferSize = (pOutputPort->format.video.nStride * pOutputPort->format.video.nSliceHeight * 3) / 2;
                 break;
             case OMX_COLOR_FormatYUV420SemiPlanar: //NV12
                 pTestDecConfig->cbcrInterleave = TRUE;
                 pTestDecConfig->nv21 = FALSE;
                 if (width && height)
-                    pOutputPort->nBufferSize = (width * height * 3) / 2;
+                    pOutputPort->nBufferSize = (pOutputPort->format.video.nStride * pOutputPort->format.video.nSliceHeight * 3) / 2;
                 break;
             case OMX_COLOR_FormatYVU420SemiPlanar: //NV21
                 pTestDecConfig->cbcrInterleave = TRUE;
                 pTestDecConfig->nv21 = TRUE;
                 if (width && height)
-                    pOutputPort->nBufferSize = (width * height * 3) / 2;
+                    pOutputPort->nBufferSize = (pOutputPort->format.video.nStride * pOutputPort->format.video.nSliceHeight * 3) / 2;
                 break;
             default:
                 LOG(SF_LOG_ERR, "Error to set parameter: %d, only nv12 nv21 i420 supported\r\n",
@@ -1277,7 +1286,6 @@ static OMX_ERRORTYPE InitDecoder(SF_OMX_COMPONENT *pSfOMXComponent)
     char *fwPath = NULL;
     SF_WAVE5_IMPLEMEMT *pSfVideoImplement = (SF_WAVE5_IMPLEMEMT *)pSfOMXComponent->componentImpl;
     OMX_PARAM_PORTDEFINITIONTYPE *pInputPort = &pSfOMXComponent->portDefinition[0];
-    OMX_PARAM_PORTDEFINITIONTYPE *pOutputPort = &pSfOMXComponent->portDefinition[1];
 
     if (pSfVideoImplement->hSFComponentExecoder != NULL)
     {
@@ -1316,8 +1324,6 @@ static OMX_ERRORTYPE InitDecoder(SF_OMX_COMPONENT *pSfOMXComponent)
         LOG(SF_LOG_ERR, "Failed to load firmware: %s\n", fwPath);
         return OMX_ErrorInsufficientResources;
     }
-    testConfig->scaleDownWidth = VPU_CEIL(pOutputPort->format.video.nFrameWidth, 2);
-    testConfig->scaleDownHeight = VPU_CEIL(pOutputPort->format.video.nFrameHeight, 2);
 
     config = pSfVideoImplement->config;
     memcpy(&(config->testDecConfig), testConfig, sizeof(TestDecConfig));
