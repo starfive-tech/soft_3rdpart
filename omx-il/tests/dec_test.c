@@ -41,6 +41,11 @@ typedef struct DecodeTestContext
     char sOutputFormat[64];
     OMX_U32 ScaleWidth;
     OMX_U32 ScaleHeight;
+    OMX_U32 OutputWidth;
+    OMX_U32 OutputHeight;
+    OMX_U32 OutputStride;
+    OMX_U32 OutputSlice;
+    OMX_COLOR_FORMATTYPE FormatType;
     OMX_BUFFERHEADERTYPE *pInputBufferArray[64];
     OMX_BUFFERHEADERTYPE *pOutputBufferArray[64];
     AVFormatContext *avContext;
@@ -82,6 +87,11 @@ static OMX_ERRORTYPE event_handler(
         printf("======================================\r\n");
         printf("out put resolution [%dx%d]\r\n", pOutputPortDefinition.format.video.nFrameWidth, pOutputPortDefinition.format.video.nFrameHeight);
         printf("======================================\r\n");
+
+        pDecodeTestContext->OutputWidth = pOutputPortDefinition.format.video.nFrameWidth;
+        pDecodeTestContext->OutputHeight = pOutputPortDefinition.format.video.nFrameHeight;
+        pDecodeTestContext->OutputStride = pOutputPortDefinition.format.video.nStride;
+        pDecodeTestContext->OutputSlice = pOutputPortDefinition.format.video.nSliceHeight;
 
         OMX_SendCommand(pDecodeTestContext->hComponentDecoder, OMX_CommandPortEnable, 1, NULL);
 
@@ -252,6 +262,62 @@ static OMX_S32 FillInputBuffer(DecodeTestContext *decodeTestContext, OMX_BUFFERH
         return 0;
     memcpy(pInputBuffer->pBuffer, avpacket->data, avpacket->size);
     return avpacket->size;
+}
+
+static OMX_S32 WriteOutputBuffer(DecodeTestContext *decodeTestContext, OMX_BUFFERHEADERTYPE *pInputBuffer, FILE *fb)
+{
+    OMX_U32 i, j, PlaneCnt = 0;
+    OMX_U32 srcWidth[3] = {0};
+    OMX_U32 srcStride[3] = {0};
+    OMX_U32 srcHeight[3] = {0};
+    OMX_U32 srcSlice[3] = {0};
+    OMX_U8 *pBuffer = pInputBuffer->pBuffer;
+
+    switch (decodeTestContext->FormatType)
+    {
+    case OMX_COLOR_FormatYUV420Planar :
+        PlaneCnt = 3;
+        srcWidth[0] = decodeTestContext->OutputWidth;
+        srcStride[0] = decodeTestContext->OutputStride;
+        srcHeight[0] = decodeTestContext->OutputHeight;
+        srcSlice[0] = decodeTestContext->OutputSlice;
+        srcWidth[1] = srcWidth[2] = srcWidth[0] / 2;
+        srcStride[1] = srcStride[2] = srcStride[0] / 2;
+        srcHeight[1] = srcHeight[2] = srcHeight[0] / 2;
+        srcSlice[1] = srcSlice[2] = srcSlice[0] /2 ;
+        break;
+    case OMX_COLOR_FormatYUV420SemiPlanar:
+    case OMX_COLOR_FormatYVU420SemiPlanar:
+        PlaneCnt = 2;
+        srcWidth[0] = decodeTestContext->OutputWidth;
+        srcStride[0] = decodeTestContext->OutputStride;
+        srcHeight[0] = decodeTestContext->OutputHeight;
+        srcSlice[0] = decodeTestContext->OutputSlice;
+        srcWidth[1] = srcWidth[0];
+        srcStride[1] = srcStride[0];
+        srcHeight[1] = srcHeight[0] / 2;
+        srcSlice[1] = srcSlice[0] / 2 ;
+        break;
+    default:
+        return -1;
+    }
+
+    for (i = 0; i < PlaneCnt; i++)
+    {
+        if (srcStride[i] > srcWidth[i])
+        {
+            for (j = 0; j < srcHeight[i]; i++)
+            fwrite(pBuffer + j * srcStride[i], 1, srcWidth[i], fb);
+
+        }
+        else
+        {
+            fwrite(pBuffer, 1, srcStride[i] * srcHeight[i], fb);
+        }
+        pBuffer += srcStride[i] * srcSlice[i];
+    }
+
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -460,6 +526,7 @@ int main(int argc, char **argv)
         printf("Unsupported color format!\r\n");
         goto end;
     }
+    decodeTestContext->FormatType = pOutputPortDefinition.format.video.eColorFormat;
     OMX_SetParameter(hComponentDecoder, OMX_IndexParamPortDefinition, &pOutputPortDefinition);
 
     disableEVnt = OMX_FALSE;
@@ -528,7 +595,7 @@ int main(int argc, char **argv)
         case 1:
         {
             OMX_BUFFERHEADERTYPE *pBuffer = data.pBuffer;
-            fwrite(pBuffer->pBuffer, 1, pBuffer->nFilledLen, fb);
+            WriteOutputBuffer(decodeTestContext, pBuffer, fb);
             if ((pBuffer->nFlags) & (OMX_BUFFERFLAG_EOS == OMX_BUFFERFLAG_EOS))
             {
                 goto end;
