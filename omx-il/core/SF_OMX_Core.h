@@ -130,6 +130,8 @@ typedef struct _SF_PORT_PRIVATE
 } SF_PORT_PRIVATE;
 
 #define OMX_ALIGN32(_x)  (((_x)+0x1f)&~0x1f)
+#define OMX_ALIGN16(_x)  (((_x)+0xf)&~0xf)
+#define OMX_ALIGN2(_x)   (((_x)+0x1)&~0x1)
 
 #define PRINT_STUCT(a, b)                                   \
     do                                                      \
