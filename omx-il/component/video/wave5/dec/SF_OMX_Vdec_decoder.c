@@ -1035,7 +1035,10 @@ static OMX_ERRORTYPE SF_OMX_SetParameter(
             pOutputPort->format.video.nFrameWidth = width;
             pOutputPort->format.video.nFrameHeight = height;
             pOutputPort->format.video.nStride = width;
-            pOutputPort->format.video.nSliceHeight = OMX_ALIGN16(height);
+            if (pSfOMXComponent->portDefinition[0].format.video.eCompressionFormat == OMX_VIDEO_CodingAVC)
+                pOutputPort->format.video.nSliceHeight = OMX_ALIGN16(height);
+            else
+                pOutputPort->format.video.nSliceHeight = height;
             pTestDecConfig->scaleDownWidth = 0;
             pTestDecConfig->scaleDownHeight = 0;
             if (width && height)
@@ -1087,12 +1090,17 @@ static OMX_ERRORTYPE SF_OMX_SetParameter(
             pOutputPort->format.video.nFrameWidth = width;
             pOutputPort->format.video.nFrameHeight = height;
             pOutputPort->format.video.nStride = width;
-            pOutputPort->format.video.nSliceHeight = OMX_ALIGN16(height);
+            if (pSfOMXComponent->portDefinition[0].format.video.eCompressionFormat == OMX_VIDEO_CodingAVC)
+                pOutputPort->format.video.nSliceHeight = OMX_ALIGN16(height);
+            else
+                pOutputPort->format.video.nSliceHeight = height;
             LOG(SF_LOG_INFO, "Set resol = %d x %d, stride %d x %d\r\n", width, height, pOutputPort->format.video.nStride, pOutputPort->format.video.nSliceHeight);
             if(width != pInputPort->format.video.nFrameWidth || height != pInputPort->format.video.nFrameHeight)
             {
                 pTestDecConfig->scaleDownWidth = OMX_ALIGN2(width);
                 pTestDecConfig->scaleDownHeight = OMX_ALIGN2(height);
+                pOutputPort->format.video.nStride = testConfig->scaleDownWidth;
+                pOutputPort->format.video.nSliceHeight = testConfig->scaleDownHeight;
                 LOG(SF_LOG_INFO, "Set scale = %d, %d\r\n", pTestDecConfig->scaleDownWidth , pTestDecConfig->scaleDownHeight);
             }
              /*
