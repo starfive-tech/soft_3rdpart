@@ -35,7 +35,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <asm/types.h>
-#include <jpeglib.h>
+//#include <jpeglib.h>
 #include <libv4l2.h>
 #include <signal.h>
 #include <stdint.h>
@@ -1932,12 +1932,27 @@ static STF_INT IspCtrl(
     // ISP load binary parameters.
     //=========================================================================
     bFileExist = STF_FALSE;
-    sprintf(szIspBinParamFilename, "/root/.isp_setting/IspSetting_%dx%d.ybn",
-        stPipeline.stIspCtx.stImgSize.u16Cx,
-        stPipeline.stIspCtx.stImgSize.u16Cy
-        );
-    bFileExist = (0 == stat(szIspBinParamFilename, &stStat))
-        ? STF_TRUE : STF_FALSE;
+    if(readlink("/proc/self/exe", szIspBinParamFilename, sizeof(szIspBinParamFilename) - 1)) {
+        char * szExe = 0;
+        szExe = strrchr(szIspBinParamFilename, '/');
+        if(szExe) {
+            sprintf(szExe, "/IspSetting_%s_%dx%d.ybn",
+                szSensorName,
+                stPipeline.stIspCtx.stImgSize.u16Cx,
+                stPipeline.stIspCtx.stImgSize.u16Cy
+            );
+            bFileExist = (0 == stat(szIspBinParamFilename, &stStat))
+                ? STF_TRUE : STF_FALSE;
+        }
+    }
+    if (STF_FALSE == bFileExist) {
+        sprintf(szIspBinParamFilename, "/root/.isp_setting/IspSetting_%dx%d.ybn",
+            stPipeline.stIspCtx.stImgSize.u16Cx,
+            stPipeline.stIspCtx.stImgSize.u16Cy
+            );
+        bFileExist = (0 == stat(szIspBinParamFilename, &stStat))
+            ? STF_TRUE : STF_FALSE;
+    }
     if (STF_FALSE == bFileExist) {
         sprintf(szIspBinParamFilename, "/root/ISP/IspSetting_%s_%dx%d.ybn",
             szSensorName,
