@@ -85,7 +85,8 @@ static OMX_ERRORTYPE event_handler(
         printf("enable output port and alloc buffer\n");
 
         printf("======================================\r\n");
-        printf("out put resolution [%dx%d]\r\n", pOutputPortDefinition.format.video.nFrameWidth, pOutputPortDefinition.format.video.nFrameHeight);
+        printf("out put resolution [%dx%d] stride [%dx%d]\r\n", pOutputPortDefinition.format.video.nFrameWidth, pOutputPortDefinition.format.video.nFrameHeight,
+                                                                pOutputPortDefinition.format.video.nStride, pOutputPortDefinition.format.video.nSliceHeight);
         printf("======================================\r\n");
 
         pDecodeTestContext->OutputWidth = pOutputPortDefinition.format.video.nFrameWidth;
@@ -306,7 +307,7 @@ static OMX_S32 WriteOutputBuffer(DecodeTestContext *decodeTestContext, OMX_BUFFE
     {
         if (srcStride[i] > srcWidth[i])
         {
-            for (j = 0; j < srcHeight[i]; i++)
+            for (j = 0; j < srcHeight[i]; j++)
             fwrite(pBuffer + j * srcStride[i], 1, srcWidth[i], fb);
 
         }
