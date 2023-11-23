@@ -267,14 +267,14 @@ static void OnEventArrived(Component com, unsigned long event, void *data, void 
         {
             pSfOMXComponent->portDefinition[1].format.video.nFrameWidth = testConfig->scaleDownWidth;
             pSfOMXComponent->portDefinition[1].format.video.nFrameHeight = testConfig->scaleDownHeight;
-            pSfOMXComponent->portDefinition[1].format.video.nStride = testConfig->scaleDownWidth;
+            pSfOMXComponent->portDefinition[1].format.video.nStride = OMX_ALIGN32(testConfig->scaleDownWidth);
             pSfOMXComponent->portDefinition[1].format.video.nSliceHeight = testConfig->scaleDownHeight;
         }
         else
         {
             pSfOMXComponent->portDefinition[1].format.video.nFrameWidth = pInfo->picCropRect.right;
             pSfOMXComponent->portDefinition[1].format.video.nFrameHeight = pInfo->picCropRect.bottom;
-            pSfOMXComponent->portDefinition[1].format.video.nStride = pInfo->picWidth;
+            pSfOMXComponent->portDefinition[1].format.video.nStride = OMX_ALIGN32(pInfo->picWidth);
             pSfOMXComponent->portDefinition[1].format.video.nSliceHeight = pInfo->picHeight;
         }
         LOG(SF_LOG_INFO, "Get Output width = %d, height = %d\r\n", pSfOMXComponent->portDefinition[1].format.video.nFrameWidth,
@@ -1034,7 +1034,7 @@ static OMX_ERRORTYPE SF_OMX_SetParameter(
 
             pOutputPort->format.video.nFrameWidth = width;
             pOutputPort->format.video.nFrameHeight = height;
-            pOutputPort->format.video.nStride = width;
+            pOutputPort->format.video.nStride = OMX_ALIGN32(width);
             if (pSfOMXComponent->portDefinition[0].format.video.eCompressionFormat == OMX_VIDEO_CodingAVC)
                 pOutputPort->format.video.nSliceHeight = OMX_ALIGN16(height);
             else
@@ -1089,7 +1089,7 @@ static OMX_ERRORTYPE SF_OMX_SetParameter(
             }
             pOutputPort->format.video.nFrameWidth = width;
             pOutputPort->format.video.nFrameHeight = height;
-            pOutputPort->format.video.nStride = width;
+            pOutputPort->format.video.nStride = OMX_ALIGN32(width);
             if (pSfOMXComponent->portDefinition[0].format.video.eCompressionFormat == OMX_VIDEO_CodingAVC)
                 pOutputPort->format.video.nSliceHeight = OMX_ALIGN16(height);
             else
@@ -1099,7 +1099,7 @@ static OMX_ERRORTYPE SF_OMX_SetParameter(
             {
                 pTestDecConfig->scaleDownWidth = OMX_ALIGN2(width);
                 pTestDecConfig->scaleDownHeight = OMX_ALIGN2(height);
-                pOutputPort->format.video.nStride = testConfig->scaleDownWidth;
+                pOutputPort->format.video.nStride = OMX_ALIGN32(testConfig->scaleDownWidth);
                 pOutputPort->format.video.nSliceHeight = testConfig->scaleDownHeight;
                 LOG(SF_LOG_INFO, "Set scale = %d, %d\r\n", pTestDecConfig->scaleDownWidth , pTestDecConfig->scaleDownHeight);
             }
