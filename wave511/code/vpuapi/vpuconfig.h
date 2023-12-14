@@ -58,7 +58,7 @@
 
 
 #define MAX_INST_HANDLE_SIZE            48              /* DO NOT CHANGE THIS VALUE */
-#define MAX_NUM_INSTANCE                4
+#define MAX_NUM_INSTANCE                16
 #define MAX_NUM_VPU_CORE                1
 #define MAX_NUM_VCORE                   1
 
