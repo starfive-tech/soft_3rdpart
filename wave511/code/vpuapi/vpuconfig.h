@@ -62,6 +62,8 @@
 #define MAX_NUM_VPU_CORE                1
 #define MAX_NUM_VCORE                   1
 
+#define MAX_CACHE_SIZE                  0x200000
+
     #define MAX_ENC_AVC_PIC_WIDTH           4096
     #define MAX_ENC_AVC_PIC_HEIGHT          2304
 #define MAX_ENC_PIC_WIDTH               4096
