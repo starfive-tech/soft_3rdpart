@@ -30,7 +30,6 @@
 #define DIFF_NS(A, B) (((B).tv_sec - (A).tv_sec) * NSEC_PER_SEC + (B).tv_nsec - (A).tv_nsec)
 #define TIMESPEC2NS(T) ((uint64_t)(T).tv_sec * NSEC_PER_SEC + (T).tv_nsec)
 
-
 #ifdef MEASURE_TIMING
 // Log tht save data.
 char logname[50];
@@ -210,6 +209,11 @@ void check_master_state()
     if (ms.link_up != master_state.link_up)
     {
         printf("Link is %s.\n", ms.link_up ? "up" : "down");
+
+        if (!ms.link_up)
+        {
+            is_quit = true;
+        }
     }
 
     master_state = ms;
@@ -236,6 +240,11 @@ void check_slave_config_state(struct _SlaveConfig *slave_config)
         if (s.online != slave_config[i].sc_state.online)
         {
             printf("slave[%d]: %s.\n", i, s.online ? "online" : "offline");
+        }
+
+        if (!s.online)
+        {
+            is_quit = true;
         }
 
         if (s.operational != slave_config[i].sc_state.operational)
@@ -273,6 +282,7 @@ void cyclic_task(struct _SlaveConfig *slave_config, struct _Domain *domain)
     // Used to determine the value of the status word.
     uint16_t proof_value = 0x004F;
     uint16_t ctrl_word[] = {0x0006, 0x0007, 0x000f};
+    uint16_t fault_reset = 0x008f;
     uint16_t status;
     uint32_t count = 0;
     static int direction = 0;
@@ -366,28 +376,33 @@ void cyclic_task(struct _SlaveConfig *slave_config, struct _Domain *domain)
         {
             // Read state word.
             status = EC_READ_U16(domain->domain_pd + slave_offset[i].Status_Word);
-            if ((status & proof_value) == 0x0040)
+            switch (status & proof_value)
             {
+            // Control phase 1.
+            case 0x0040:
                 // Set operation mode to velocity Mode.
                 EC_WRITE_U8(domain->domain_pd + slave_offset[i].Operation_Mode, MOTOR_MODEL_PROFILE_VELOCITY);
-                // Set Profile_Acceleration and  Profile_Deceleration.
+                // Set Profile_Acceleration and Profile_Deceleration.
                 EC_WRITE_U32(domain->domain_pd + slave_offset[i].Profile_Acceleration, MOTOR_PROFILE_ACCELERATION);
                 EC_WRITE_U32(domain->domain_pd + slave_offset[i].Profile_Deceleration, MOTOR_PROFILE_DECELERATION);
                 EC_WRITE_U16(domain->domain_pd + slave_offset[i].Ctrl_Word, ctrl_word[0]);
                 proof_value = 0x006F;
-            }
-            else if ((status & proof_value) == 0x0021)
-            {
+                break;
+
+            // Control phase 2.
+            case 0x0021:
                 EC_WRITE_U16(domain->domain_pd + slave_offset[i].Ctrl_Word, ctrl_word[1]);
                 proof_value = 0x006F;
-            }
-            else if ((status & proof_value) == 0x0023)
-            {
+                break;
+
+            // Control phase 3.
+            case 0x0023:
                 EC_WRITE_U16(domain->domain_pd + slave_offset[i].Ctrl_Word, ctrl_word[2]);
                 proof_value = 0x006F;
-            }
-            else if ((status & proof_value) == 0x0027)
-            {
+                break;
+
+            // Control phase 3.
+            case 0x0027:
                 slave_config[i].current_velocity = EC_READ_U32(domain->domain_pd + slave_offset[i].Current_Velocity);
                 // Determine whether to turn forward or reverse.
                 if (direction == 0)
@@ -416,11 +431,12 @@ void cyclic_task(struct _SlaveConfig *slave_config, struct _Domain *domain)
                         direction = 0;
                     }
                 }
-            }
-            else
-            {
+                break;
+
+            default:
                 // Fault reset.
                 EC_WRITE_U16(domain->domain_pd + slave_offset[i].Ctrl_Word, 0x008f);
+                break;
             }
         }
 
@@ -432,6 +448,8 @@ void cyclic_task(struct _SlaveConfig *slave_config, struct _Domain *domain)
         clock_gettime(CLOCK_TO_USE, &endTime);
 #endif
     }
+
+    printf("Exit cyclic task.\n");
 }
 
 // Function stop servo.
@@ -466,16 +484,6 @@ static void sig_handle(int signal)
     printf("Manually exit the program!\n");
 }
 
-// Function error leaving program.
-void err_leave(void)
-{
-    // Releases EtherCAT master.
-    ecrt_release_master(master);
-    printf("Release master.\n");
-    fclose(logfile);
-    exit(EXIT_FAILURE);
-}
-
 // Function initial the ethercat.
 int init_ethercat(struct _SlaveConfig *slave_config, int *ret, int *status)
 {
@@ -498,7 +506,7 @@ int init_ethercat(struct _SlaveConfig *slave_config, int *ret, int *status)
     {
         *status = -1;
         printf("Create domain failed.\n");
-        err_leave();
+        goto err_leave;
     }
     printf("Create domain success.\n");
 
@@ -512,7 +520,7 @@ int init_ethercat(struct _SlaveConfig *slave_config, int *ret, int *status)
         {
             *status = -1;
             printf("Get slave configuration failed.\n");
-            err_leave();
+            goto err_leave;
         }
     }
     printf("Get slave configuration success.\n");
@@ -525,7 +533,7 @@ int init_ethercat(struct _SlaveConfig *slave_config, int *ret, int *status)
         {
             *status = -1;
             printf("Configuration PDO failed.\n");
-            err_leave();
+            goto err_leave;
         }
     }
     printf("Configuration PDO success.\n");
@@ -536,7 +544,7 @@ int init_ethercat(struct _SlaveConfig *slave_config, int *ret, int *status)
     {
         *status = -1;
         printf("Failed to register bunch of PDO entries for domain.\n");
-        err_leave();
+        goto err_leave;
     }
     printf("Success to register bunch of PDO entries for domain.\n");
 
@@ -546,7 +554,7 @@ int init_ethercat(struct _SlaveConfig *slave_config, int *ret, int *status)
     {
         *status = -1;
         printf("Activate master failed.\n");
-        err_leave();
+        goto err_leave;
     }
     printf("Activate master success.\n");
 
@@ -556,11 +564,21 @@ int init_ethercat(struct _SlaveConfig *slave_config, int *ret, int *status)
     {
         *status = -1;
         printf("Get pointer to the process data memory failed.\n");
-        err_leave();
+        goto err_leave;
     }
     printf("Get pointer to the process data memory success.\n");
 
-    return 0;
+    return *status;
+
+// Function error leaving program.
+err_leave:
+    // Releases EtherCAT master.
+    ecrt_release_master(master);
+    printf("Release master.\n");
+#ifdef MEASURE_TIMING
+    fclose(logfile);
+#endif
+   return *status;
 }
 
 int main(int argc, char **argv)
@@ -580,6 +598,7 @@ int main(int argc, char **argv)
 
     memset(&slave_config, 0, sizeof(slave_config));
 
+#ifdef MEASURE_TIMING
     // Create a .csv file named by time.
     time_t current_time;
     struct tm *time_info;
@@ -590,7 +609,7 @@ int main(int argc, char **argv)
 
     snprintf(logname, sizeof(logname), "%s.csv", time_buffer);
 
-    logfile= fopen(logname, "w");
+    logfile = fopen(logname, "w");
 
     if (logfile == NULL)
     {
@@ -600,32 +619,37 @@ int main(int argc, char **argv)
 
     // Defining List headers.
     fwrite("ID, period_min,period_max,exec_min,exec_max,latency_min,latency_max,\r\n", 1, strlen("ID, period_min,period_max,exec_min,exec_max,latency_min,latency_max,\r\n"), logfile);
+#endif
 
     // init ethercat
-    init_ethercat(slave_config, &ret, &status);
+    if (init_ethercat(slave_config, &ret, &status) == -1)
+    {
+        perror("init ethercat fail.");
+        exit(EXIT_FAILURE);
+    }
 
     // Set highest priority.
     pid_t pid = getpid();
 
     struct sched_param param;
-    
+
     int max_priority = sched_get_priority_max(SCHED_FIFO);
-    
+
     int min_priority = sched_get_priority_min(SCHED_FIFO);
-    
+
     param.sched_priority = max_priority;
-    
-    if (sched_setscheduler(pid, SCHED_FIFO, &param) == -1) {
-    	perror("sched_setscheduler");
+
+    if (sched_setscheduler(pid, SCHED_FIFO, &param) == -1)
+    {
+        perror("sched_setscheduler");
         exit(EXIT_FAILURE);
     }
-    
-    printf("Max priority: %d\n", max_priority);
-    
-    printf("Min priority: %d\n", min_priority);
-    
-    printf("Current priority: %d\n", sched_get_priority_max(SCHED_FIFO));
 
+    printf("Max priority: %d\n", max_priority);
+
+    printf("Min priority: %d\n", min_priority);
+
+    printf("Current priority: %d\n", sched_get_priority_max(SCHED_FIFO));
 
     // Start cyclic function.
     printf("Run cycle task...\n");
