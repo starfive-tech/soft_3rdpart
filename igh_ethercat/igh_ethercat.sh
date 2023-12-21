@@ -3,10 +3,29 @@
 current_path=$(pwd)
 work_path=${current_path}/../../work
 buildroot_initramfs_sysroot_path=${work_path}/buildroot_initramfs_sysroot
+buildroot_rootfs_path=${work_path}/buildroot_rootfs
 linux_path=${work_path}/linux
 kernel_release_file=${linux_path}/include/config/kernel.release
 install_mod_path=${work_path}/module_install_path
 toolchains_path=${work_path}/buildroot_initramfs/host/bin
+
+sdcard_img=0
+
+# Determine if compile 'sdcard.img' and check if the root filesystem is compiled.
+if [ "$#" -eq 0 ]; then
+    echo "Compile 'image.fit' only."
+    echo "If you need to compile 'sdcard.img', usage: '$0 img'"
+elif [ "$1" = "img" ]; then
+    if [ -d "${buildroot_rootfs_path}" ]; then
+      echo "Compile both 'image.fit' and 'sdcard.img'"
+      sdcard_img=1
+    else
+      echo "Could not add application to sdcard image, please run 'make buildroot_rootfs -j$(nproc)' first."
+      exit 1 
+    fi
+else
+    echo "The argument is not 'img'"
+fi
 
 cd ../../linux
 linux_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -16,7 +35,7 @@ if [ "$linux_branch" == "rt-ethercat-release" ]; then
     git pull
     cd ../
     make clean
-    make
+    make -j$(nproc)
 else
     echo "The Linux source code is not on the 'rt-ethercat-release' branch. Exiting."
     cd ${current_path}
@@ -148,6 +167,11 @@ CC=${CC} make
 
 cp ectest_PV  ${buildroot_initramfs_sysroot_path}/root
 
+if [ $sdcard_img -eq 1 ]; then
+    echo "Copy application to '${buildroot_rootfs_path}/target/root'."
+    cp ectest_PV ${buildroot_rootfs_path}/target/root
+fi
+
 echo ""
 echo "==============================Generating 'start_ethercat_master.sh'=============================="
 
@@ -178,11 +202,20 @@ EOF
 
 chmod +x start_ethercat_master.sh
 
+if [ $sdcard_img -eq 1 ]; then
+    echo "Copy script to '${buildroot_rootfs_path}/target/root'."
+    cp start_ethercat_master.sh  ${buildroot_rootfs_path}/target/root
+fi
+
 echo ""
 echo "==============================Re-compiling SDK=============================="
 
 cd ${current_path}/../../
 
-make
+make -j$(nproc)
+
+if [ $sdcard_img -eq 1 ]; then
+    make img
+fi
 
 cd ${current_path}

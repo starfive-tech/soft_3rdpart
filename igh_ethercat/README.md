@@ -20,6 +20,12 @@ README.md       本文件
 ./igh_ethercat.sh
 ```
 
+或添加`img`参数同时编译sdcard.img：
+
+```bash
+./igh_ethercat.sh img
+```
+
 #### 说明
 
 该脚本会检测SDK所使用的 linux 内核版本是否为 rt-ethercat-release 且是否已经编译过，若确认在该分支上且编译过，则会拉取指定版本的 IgH EtherCAT 主站代码，进行主站以及Demo程序的编译。
@@ -27,6 +33,8 @@ README.md       本文件
 编译完成后，主站文件输出到 work/buildroot_initramfs_sysroot 中的对应路径下，主站模块编译并根据 work/linux/include/config/kernel.release 文件中的 kernel release 版本安装到 work/module_install_path 中的对应路径下。
 
 IgH EtherCAT主站启动脚本以及Demo程序会在主站编译完成后编译并安装到 work/buildroot_initramfs_sysroot/root 路径，即打包后的镜像的 /root 路径下。
+
+添加`img`参数同时编译sdcard.img时，脚本会同时检测 work/buildroot_rootfs 是否存在，否则会提示先执行`make buildroot_rootfs -j$(nproc)`。成功完毕脚本后，IgH EtherCAT主站启动脚本以及Demo程序会在主站编译完成后编译并安装到 work/buildroot_rootfs/target/root 路径下，并打包至sdcard.img中。
 
 ### 启动脚本
 
