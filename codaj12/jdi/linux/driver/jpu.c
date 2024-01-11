@@ -42,6 +42,7 @@
 #include "jpu.h"
 
 extern void sifive_ccache_flush_range(phys_addr_t start, size_t len);
+extern void sifive_ccache_flush_entire(void);
 
 //#define ENABLE_DEBUG_MSG
 #ifdef ENABLE_DEBUG_MSG
@@ -205,7 +206,10 @@ static void starfive_flush_dcache(phys_addr_t start, size_t len)
 #ifdef ARCH_HAS_SYNC_DMA_FOR_DEVICE
 	dma_sync_single_for_device(jpu_dev, start, len, DMA_FROM_DEVICE);
 #else
-	sifive_ccache_flush_range(start, len);
+	if (len >= 0x80000)
+                sifive_ccache_flush_entire();
+        else
+		sifive_ccache_flush_range(start, len);
 #endif
 }
 
