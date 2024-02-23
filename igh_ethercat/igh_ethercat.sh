@@ -9,48 +9,51 @@ kernel_release_file=${linux_path}/include/config/kernel.release
 install_mod_path=${work_path}/module_install_path
 toolchains_path=${work_path}/buildroot_initramfs/host/bin
 
+# --------------- Determining whether to compile the SD card image. ---------------
 sdcard_img=0
 
 # Determine if compile 'sdcard.img' and check if the root filesystem is compiled.
 if [ "$#" -eq 0 ]; then
-    echo "Compile 'image.fit' only."
-    echo "If you need to compile 'sdcard.img', usage: '$0 img'"
+  echo "Compile 'image.fit' only."
+  echo "If you need to compile 'sdcard.img', usage: '$0 img'"
 elif [ "$1" = "img" ]; then
-    if [ -d "${buildroot_rootfs_path}" ]; then
-      echo "Compile both 'image.fit' and 'sdcard.img'"
-      sdcard_img=1
-    else
-      echo "Could not add application to sdcard image, please run 'make buildroot_rootfs -j$(nproc)' first."
-      exit 1 
-    fi
+  if [ -d "${buildroot_rootfs_path}" ]; then
+    echo "Compile both 'image.fit' and 'sdcard.img'"
+    sdcard_img=1
+  else
+    echo "Could not add application to sdcard image, please run 'make buildroot_rootfs -j$(nproc)' first."
+    exit 1
+  fi
 else
-    echo "The argument is not 'img'"
+  echo "The argument is not 'img'"
 fi
 
+# --------------- Check if the kernel is on the corresponding branch. ---------------
 cd ../../linux
+
 linux_branch=$(git rev-parse --abbrev-ref HEAD)
 
 if [ "$linux_branch" == "rt-ethercat-release" ]; then
-    echo "Linux source code is on the branch: 'rt-ethercat-release'."
-    git pull
-    cd ../
-    make clean
-    make -j$(nproc)
+  echo "Linux source code is on the branch: 'rt-ethercat-release'."
+  git pull
+  cd ../
+  make clean
+  make -j$(nproc)
+  cd ${current_path}
 else
-    echo "The Linux source code is not on the 'rt-ethercat-release' branch. Exiting."
-    cd ${current_path}
-    exit 1
+  echo "The Linux source code is not on the 'rt-ethercat-release' branch. Exiting."
+  cd ${current_path}
+  exit 1
 fi
-
-cd ${current_path}
 
 if [ -d "${buildroot_initramfs_sysroot_path}" ] && [ -d "${linux_path}" ] && [ -d "${install_mod_path}" ]; then
   echo "Both directories(${buildroot_initramfs_sysroot_path} and ${linux_path}) exist. Proceeding with the script..."
 else
   echo "One or both of the directories(${buildroot_initramfs_sysroot_path} and ${linux_path}) do not exist, the SDK may not have been fully compiled. Please check."
-  exit 1 
+  exit 1
 fi
 
+# --------------- Check EtherCAT repo. ---------------
 repo_url="https://gitlab.com/etherlab.org/ethercat.git"
 
 # Don't using stable-1.5, witch will cause:
@@ -83,10 +86,11 @@ check_commit_id() {
 
 if [ -d "ethercat" ]; then
   echo "The 'ethercat' directory already exists..."
+
   cd ethercat
 
   current_branch=$(git symbolic-ref --short -q HEAD)
-  
+
   if [ "$current_branch" == "$branch_name" ]; then
     echo "The 'ethercat' repository is already cloned and on the '$branch_name' branch."
     check_commit_id "$commit_id"
@@ -100,21 +104,29 @@ if [ -d "ethercat" ]; then
       echo "Failed to switch to the '$branch_name' branch."
     fi
   fi
+
   cd ../
 else
   echo "Cloning 'ethercat' repository and checking out the '$branch_name' branch..."
-  git clone ${repo_url} ${directory_name}
+
+  git clone ${repo_url}
+
   if [ $? -eq 0 ]; then
-    cd "$directory_name"
+    cd ethercat
+
     git checkout $branch_name
     check_commit_id "$commit_id"
+
     if [ $? -eq 0 ]; then
       echo "Cloned 'ethercat' repository and checked out the '$branch_name' branch successfully."
     else
       echo "Failed to checkout the '$branch_name' branch."
     fi
+
+    cd ../
   else
     echo "Failed to clone the 'ethercat' repository."
+    exit 1
   fi
 fi
 
@@ -138,7 +150,7 @@ make
 echo ""
 echo "--------------------make modules--------------------"
 
-make ARCH=riscv CROSS_COMPILE=${toolchains_path}/riscv64-buildroot-linux-gnu- modules VERBOSE=1 
+make ARCH=riscv CROSS_COMPILE=${toolchains_path}/riscv64-buildroot-linux-gnu- modules VERBOSE=1
 
 echo ""
 echo "--------------------make install--------------------"
@@ -156,6 +168,8 @@ if [ -d "${buildroot_initramfs_sysroot_path}/lib/modules/${kernel_release}" ]; t
   echo "modules has been installed in the ${install_mod_path}/lib/modules/${kernel_release}"
 else
   echo "The directory does not exist. Please check the path."
+  cd ${current_path}
+  exit 1
 fi
 
 echo ""
@@ -165,46 +179,41 @@ cd ../application
 
 CC=${CC} make
 
-cp ectest_PV  ${buildroot_initramfs_sysroot_path}/root
+cp ectest_PV ${buildroot_initramfs_sysroot_path}/root
 
 if [ $sdcard_img -eq 1 ]; then
-    echo "Copy application to '${buildroot_rootfs_path}/target/root'."
-    cp ectest_PV ${buildroot_rootfs_path}/target/root
+  echo "Copy application to '${buildroot_rootfs_path}/target/root'."
+  cp ectest_PV ${buildroot_rootfs_path}/target/root
+
+  if [ $? -eq 0 ]; then
+    echo "Copy application to '${buildroot_rootfs_path}/target/root' success."
+  else
+    echo "Copy application to '${buildroot_rootfs_path}/target/root' fail."
+    cd ${current_path}
+    exit 1
+  fi
 fi
+
+cd ../
 
 echo ""
-echo "==============================Generating 'start_ethercat_master.sh'=============================="
-
-cd ${buildroot_initramfs_sysroot_path}/root
-
-cat <<EOF > start_ethercat_master.sh
-#!/bin/bash
-
-if [ \$# -eq 0 ]; then
-  echo "Usage: $0 <MAC address>"
-  exit 1
-fi
-
-mac_address="\$1"
-
-modprobe phylink
-insmod /lib/modules/${kernel_release}/ethercat/master/ec_master.ko main_devices="\$mac_address"
-insmod /lib/modules/${kernel_release}/ethercat/devices/ec_generic.ko
-modprobe pcs_xpcs
-
-cd /lib/modules/${kernel_release}/kernel/drivers/net/ethernet/stmicro/stmmac/
-insmod stmmac.ko
-insmod stmmac-platform.ko
-insmod dwmac-starfive-plat.ko
-
-cd /root
-EOF
+echo "==============================Copying 'start_ethercat_master.sh'=============================="
 
 chmod +x start_ethercat_master.sh
 
+cp start_ethercat_master.sh ${buildroot_initramfs_sysroot_path}/root
+
 if [ $sdcard_img -eq 1 ]; then
-    echo "Copy script to '${buildroot_rootfs_path}/target/root'."
-    cp start_ethercat_master.sh  ${buildroot_rootfs_path}/target/root
+  echo "Copy script to '${buildroot_rootfs_path}/target/root'."
+  cp start_ethercat_master.sh ${buildroot_rootfs_path}/target/root
+
+  if [ $? -eq 0 ]; then
+    echo "Copy script to '${buildroot_rootfs_path}/target/root' success."
+  else
+    echo "Copy script to '${buildroot_rootfs_path}/target/root' fail."
+    cd ${current_path}
+    exit 1
+  fi
 fi
 
 echo ""
@@ -215,7 +224,7 @@ cd ${current_path}/../../
 make -j$(nproc)
 
 if [ $sdcard_img -eq 1 ]; then
-    make img
+  make img
 fi
 
 cd ${current_path}
