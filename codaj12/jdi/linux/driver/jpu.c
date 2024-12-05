@@ -1008,7 +1008,11 @@ ERROR_PROVE_DEVICE:
     return err;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,11,0)
 static int jpu_remove(struct platform_device *pdev)
+#else
+static void jpu_remove(struct platform_device *pdev)
+#endif
 {
     DPRINTK("[JPUDRV] jpu_remove\n");
 #ifdef JPU_SUPPORT_PLATFORM_DRIVER_REGISTER
@@ -1046,7 +1050,9 @@ static int jpu_remove(struct platform_device *pdev)
 
 #endif /* JPU_SUPPORT_PLATFORM_DRIVER_REGISTER */
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,11,0)
 	return 0;
+#endif
 }
 
 #ifdef CONFIG_PM
