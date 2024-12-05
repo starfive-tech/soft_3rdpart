@@ -1234,7 +1234,11 @@ ERROR_PROVE_DEVICE:
 	return err;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,11,0)
 static int vpu_remove(struct platform_device *pdev)
+#else
+static void vpu_remove(struct platform_device *pdev)
+#endif
 {
 	DPRINTK("[VPUDRV] vpu_remove\n");
 #ifdef VPU_SUPPORT_PLATFORM_DRIVER_REGISTER
@@ -1282,7 +1286,9 @@ static int vpu_remove(struct platform_device *pdev)
 
 #endif /*VPU_SUPPORT_PLATFORM_DRIVER_REGISTER*/
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,11,0)
 	return 0;
+#endif
 }
 
 #ifdef CONFIG_PM
