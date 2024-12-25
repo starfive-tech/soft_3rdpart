@@ -1471,7 +1471,7 @@ RetCode ProductCheckEncOpenParam(EncOpenParam* pop)
                 return RETCODE_INVALID_PARAM;
         }
 
-        if (param->useRecommendEncParam < 0 && param->useRecommendEncParam > 3) 
+        if (param->useRecommendEncParam < 0 || param->useRecommendEncParam > 3) 
             return RETCODE_INVALID_PARAM;
 
         if (param->useRecommendEncParam == 0 || param->useRecommendEncParam == 2 || param->useRecommendEncParam == 3) {
@@ -1571,7 +1571,7 @@ RetCode ProductCheckEncOpenParam(EncOpenParam* pop)
             if (param->ctuOptParam.roiEnable && param->hvsQPEnable)     // can not use both ROI and hvsQp
                 return RETCODE_INVALID_PARAM;
 
-            if (param->bitAllocMode < 0 && param->bitAllocMode > 2) 
+            if (param->bitAllocMode < 0 || param->bitAllocMode > 2) 
                 return RETCODE_INVALID_PARAM;
 
             if (param->initBufLevelx8 < 0 || param->initBufLevelx8 > 8)
