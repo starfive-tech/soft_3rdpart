@@ -1397,7 +1397,7 @@ RetCode ProductCheckEncOpenParam(EncOpenParam* pop)
         }
         
 
-        if (param->useRecommendEncParam < 0 && param->useRecommendEncParam > 3) 
+        if (param->useRecommendEncParam < 0 || param->useRecommendEncParam > 3) 
             return RETCODE_INVALID_PARAM;
 
         if (param->useRecommendEncParam == 0 || param->useRecommendEncParam == 2 || param->useRecommendEncParam == 3) {
@@ -1498,7 +1498,7 @@ RetCode ProductCheckEncOpenParam(EncOpenParam* pop)
                     return RETCODE_INVALID_PARAM;
             }            
             
-            if (param->bitAllocMode < 0 && param->bitAllocMode > 2) 
+            if (param->bitAllocMode < 0 || param->bitAllocMode > 2) 
                 return RETCODE_INVALID_PARAM;
 
             if (pop->vbvBufferSize < 10 || pop->vbvBufferSize > 3000 )
