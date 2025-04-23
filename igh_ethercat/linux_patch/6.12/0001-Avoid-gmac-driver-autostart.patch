@@ -1,0 +1,29 @@
+From c2dd5cf908dfafec631bd2bfb47e116985305b1a Mon Sep 17 00:00:00 2001
+From: Atlas Luo <atlas.luo@starfivetech.com>
+Date: Thu, 9 May 2024 09:40:24 +0800
+Subject: [PATCH] Avoid gmac driver autostart.
+
+---
+ arch/riscv/configs/starfive_visionfive2_defconfig | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/arch/riscv/configs/starfive_visionfive2_defconfig b/arch/riscv/configs/starfive_visionfive2_defconfig
+index 336b8faf59bd..c69c09dde094 100644
+--- a/arch/riscv/configs/starfive_visionfive2_defconfig
++++ b/arch/riscv/configs/starfive_visionfive2_defconfig
+@@ -148,10 +148,8 @@ CONFIG_R8169=y
+ # CONFIG_NET_VENDOR_SEEQ is not set
+ # CONFIG_NET_VENDOR_SOLARFLARE is not set
+ # CONFIG_NET_VENDOR_SOCIONEXT is not set
+-CONFIG_STMMAC_ETH=y
+-CONFIG_STMMAC_SELFTESTS=y
+-CONFIG_DWMAC_DWC_QOS_ETH=y
+-CONFIG_DWMAC_STARFIVE=y
++CONFIG_STMMAC_ETH=m
++# CONFIG_STMMAC_PLATFORM is not set
+ # CONFIG_NET_VENDOR_SYNOPSYS is not set
+ # CONFIG_NET_VENDOR_VIA is not set
+ # CONFIG_NET_VENDOR_WIZNET is not set
+-- 
+2.34.1
+
