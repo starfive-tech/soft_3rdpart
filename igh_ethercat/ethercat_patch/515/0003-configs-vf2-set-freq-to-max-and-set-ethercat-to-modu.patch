@@ -1,0 +1,79 @@
+From d0dc271c4c5bc99585270703d915dd07dd14fb88 Mon Sep 17 00:00:00 2001
+From: Minda Chen <minda.chen@starfivetech.com>
+Date: Tue, 7 Nov 2023 10:30:50 +0800
+Subject: [PATCH 3/3] configs: vf2: set freq to max and set ethercat to module
+
+Set defualt to max frequeuce to set latency to minium.
+Alse disable cpu idle and hibernation pm ops.
+
+etercat module module install sequence
+
+modprobe phylink
+insmod ec_master.ko main_devices=<ethercat gmac mac address>
+insmod ec_generic.ko
+modprobe pcs_xpcs
+
+cd /lib/modules/5.15.0-rt17+/kernel/drivers/net/ethernet/stmicro/stmmac/
+insmod stmmac.ko
+insmod stmmac-platform.ko
+insmod dwmac-starfive-plat.ko
+
+mac address example:
+insmod ec_master.ko main_devices=6c:cf:39:00:27:48
+
+Signed-off-by: Minda Chen <minda.chen@starfivetech.com>
+---
+ arch/riscv/configs/starfive_visionfive2_defconfig | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
+
+diff --git a/arch/riscv/configs/starfive_visionfive2_defconfig b/arch/riscv/configs/starfive_visionfive2_defconfig
+index 74ccd733f4af..287c0e4885e4 100644
+--- a/arch/riscv/configs/starfive_visionfive2_defconfig
++++ b/arch/riscv/configs/starfive_visionfive2_defconfig
+@@ -23,13 +23,9 @@ CONFIG_SOC_STARFIVE=y
+ CONFIG_SOC_STARFIVE_JH7110=y
+ CONFIG_SMP=y
+ CONFIG_HZ_1000=y
+-CONFIG_HIBERNATION=y
+-CONFIG_PM_STD_PARTITION="PARTLABEL=hibernation"
+ CONFIG_PM_DEBUG=y
+ CONFIG_PM_ADVANCED_DEBUG=y
+ CONFIG_PM_TEST_SUSPEND=y
+-CONFIG_CPU_IDLE=y
+-CONFIG_RISCV_SBI_CPUIDLE=y
+ # CONFIG_SECCOMP is not set
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+@@ -91,6 +87,7 @@ CONFIG_MAC80211=y
+ CONFIG_RFKILL=y
+ CONFIG_NET_9P=y
+ CONFIG_NET_9P_VIRTIO=y
++CONFIG_ETHERCAT=m
+ CONFIG_PCI=y
+ # CONFIG_PCIEASPM is not set
+ CONFIG_PCIE_PLDA=y
+@@ -143,10 +140,9 @@ CONFIG_R8169=y
+ # CONFIG_NET_VENDOR_SEEQ is not set
+ # CONFIG_NET_VENDOR_SOLARFLARE is not set
+ # CONFIG_NET_VENDOR_SOCIONEXT is not set
+-CONFIG_STMMAC_ETH=y
+-CONFIG_STMMAC_SELFTESTS=y
+-CONFIG_DWMAC_DWC_QOS_ETH=y
+-CONFIG_DWMAC_STARFIVE_PLAT=y
++CONFIG_STMMAC_ETH=m
++CONFIG_DWMAC_DWC_QOS_ETH=m
++CONFIG_DWMAC_STARFIVE_PLAT=m
+ # CONFIG_NET_VENDOR_SYNOPSYS is not set
+ # CONFIG_NET_VENDOR_VIA is not set
+ # CONFIG_NET_VENDOR_WIZNET is not set
+@@ -493,7 +489,6 @@ CONFIG_PHY_M31_DPHY_RX0=y
+ CONFIG_RAS=y
+ CONFIG_CPU_FREQ=y
+ CONFIG_CPU_FREQ_STAT=y
+-CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND=y
+ CONFIG_CPU_FREQ_GOV_POWERSAVE=y
+ CONFIG_CPU_FREQ_GOV_USERSPACE=y
+ CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
+-- 
+2.34.1
+
