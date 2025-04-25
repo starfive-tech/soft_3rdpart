@@ -168,7 +168,7 @@ cd ethercat
 CC=${toolchains_path}/riscv64-buildroot-linux-gnu-gcc
 CXX=${toolchains_path}/riscv64-buildroot-linux-gnu-g++
 
-./configure --prefix=${buildroot_initramfs_sysroot_path} --with-linux-dir=${linux_path} --enable-8139too=no --enable-generic=yes --enable-hrtimer=yes --enable-dwc=yes --with-dwc-kernel=6.12 CC=${CC} CXX=${CXX} --host=riscv64-buildroot-linux-gnu
+./configure --prefix=${buildroot_initramfs_sysroot_path} --with-linux-dir=${linux_path} --enable-8139too=no --enable-generic=yes --enable-hrtimer=yes --enable-dwc=yes --with-dwc-kernel=${patch_dir} CC=${CC} CXX=${CXX} --host=riscv64-buildroot-linux-gnu
 
 echo ""
 echo "--------------------make--------------------"
