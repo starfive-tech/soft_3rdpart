@@ -33,15 +33,32 @@ cd ../../linux
 
 linux_branch=$(git rev-parse --abbrev-ref HEAD)
 
-if [ "$linux_branch" == "rt-ethercat-release" ]; then
-  echo "Linux source code is on the branch: 'rt-ethercat-release'."
+if [ "$linux_branch" == "vf2-515-devel-rtlinux" ]; then
+  echo "Linux source code is on the branch: 'vf2-515-devel-rtlinux'."
   git pull
+  # Iterate through patches starting with "0001*" to "0003*" in the ethercat_patches directory
+  echo "Applying patches."
+  for patch_file in ${current_path}/ethercat_patch/515/000*; do
+    if [[ "$patch_file" =~ /000[1-3]*-.*\.patch ]]; then
+      # Applying patches by using 'git am', and ignore the possible conflicts
+      git am --3way --ignore-whitespace "$patch_file" || {
+        # if 'git am' fails, output error messages and skip this patch.
+        echo "Failed to apply patch: $patch_file"
+        # clean 'git am' status.
+        git am --abort
+        # Skip the current loop iteration and continue with the next patch file.
+        continue
+      }
+      echo "Patch applied: $patch_file"
+    fi
+  done
+
   cd ../
   make clean
   make -j$(nproc)
   cd ${current_path}
 else
-  echo "The Linux source code is not on the 'rt-ethercat-release' branch. Exiting."
+  echo "The Linux source code is not on the 'vf2-515-devel-rtlinux' branch. Exiting."
   cd ${current_path}
   exit 1
 fi

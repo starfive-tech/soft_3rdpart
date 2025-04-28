@@ -32,27 +32,26 @@ fi
 if [[ -d "../../linux" ]]; then
   echo "The 'linux' directory already exists..."
 
-  cd ../../linux
+  cd ../../linux || exit 1
+  linux_branch=$(git rev-parse --abbrev-ref HEAD)
+  git pull
 
-  echo "Check linux commit id."
-
-  rt_linux_commit_id="157cc56732d6b7948ae59aa147a75ad0754c820d"
-  current_linux_commit_id=$(git rev-parse HEAD)
-
-  echo "$current_linux_commit_id"
-
-  if [[ $current_linux_commit_id != $rt_linux_commit_id ]]; then
-    echo "Linux kernel is not on the expected commit. Switching to $rt_linux_commit_id..."
-
-    git checkout "$rt_linux_commit_id" || {
-      echo "Failed to switch to commit $rt_linux_commit_id"
+  case "$linux_branch" in
+    "vf2-6.6.y-devel-rtlinux")
+      patch_dir="6.6"
+      ;;
+    "vf2-6.12.y-devel-rtlinux")
+      patch_dir="6.12"
+      ;;
+    *)
+      echo "Error: Unsupported branch '$linux_branch'"
       exit 1
-    }
-  fi
+      ;;
+  esac
 
   # Iterate through patches starting with "0001*"in the linux_patches directory
   echo "Applying patches."
-  for patch_file in ${current_path}/linux_patch/000*; do
+   for patch_file in ${current_path}/linux_patch/${patch_dir}/000*; do
     if [[ "$patch_file" =~ /000[1-3]*-.*\.patch ]]; then
       # Applying patches by using 'git am', and ignore the possible conflicts
       git am --3way --ignore-whitespace "$patch_file" || {
@@ -142,7 +141,7 @@ fi
 
 # Iterate through patches starting with "0001*" to "0003*" in the ethercat_patches directory
 echo "Applying patches."
-for patch_file in ../ethercat_patch/000*; do
+for patch_file in ../ethercat_patch/${patch_dir}/000*; do
   if [[ "$patch_file" =~ /000[1-3]*-.*\.patch ]]; then
     # Applying patches by using 'git am', and ignore the possible conflicts
     git am --3way --ignore-whitespace "$patch_file" || {
@@ -169,7 +168,7 @@ cd ethercat
 CC=${toolchains_path}/riscv64-buildroot-linux-gnu-gcc
 CXX=${toolchains_path}/riscv64-buildroot-linux-gnu-g++
 
-./configure --prefix=${buildroot_initramfs_sysroot_path} --with-linux-dir=${linux_path} --enable-8139too=no --enable-generic=yes --enable-hrtimer=yes --enable-dwc=yes --with-dwc-kernel=6.6 CC=${CC} CXX=${CXX} --host=riscv64-buildroot-linux-gnu
+./configure --prefix=${buildroot_initramfs_sysroot_path} --with-linux-dir=${linux_path} --enable-8139too=no --enable-generic=yes --enable-hrtimer=yes --enable-dwc=yes --with-dwc-kernel=${patch_dir} CC=${CC} CXX=${CXX} --host=riscv64-buildroot-linux-gnu
 
 echo ""
 echo "--------------------make--------------------"
@@ -252,13 +251,13 @@ cd ../
 echo ""
 echo "==============================Copying 'start_ethercat_master.sh'=============================="
 
-chmod +x start_ethercat_master_v6.6.sh
+chmod +x start_ethercat_master_v6.sh
 
-cp start_ethercat_master_v6.6.sh ${buildroot_initramfs_sysroot_path}/root
+cp start_ethercat_master_v6.sh ${buildroot_initramfs_sysroot_path}/root
 
 if [ $sdcard_img -eq 1 ]; then
   echo "Copy script to '${buildroot_rootfs_path}/target/root'."
-  cp start_ethercat_master_v6.6.sh ${buildroot_rootfs_path}/target/root
+  cp start_ethercat_master_v6.sh ${buildroot_rootfs_path}/target/root
 
   if [ $? -eq 0 ]; then
     echo "Copy script to '${buildroot_rootfs_path}/target/root' success."
